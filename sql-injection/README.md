@@ -51,6 +51,6 @@ Similar to question [3](#3-sql-injection-attack-querying-the-database-type-and-v
 
 ### Solution
 There are only two differences from question. Instead of `SELECT banner FROM v$version`, MySQL can directly use `SELECT VERSION()`. This can be adapted to `SELECT VERSION(), NULL FROM dual` to support the union. Another difference is that the comment marker `--` **must** be followed by whitespace in order to start a comment. The final solution is the following payload:
-``'+UNION+SELECT+VERSION(),+NULL+FROM+v$version+--+`
+`'+UNION+SELECT+VERSION(),+NULL+FROM+v$version+--+`
 
 I have also started to use `+` instead of `%20` for the sake of ~~my sanity~~ readability.
