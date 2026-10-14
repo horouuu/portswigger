@@ -31,6 +31,7 @@ The lab entailed exfiltrating the version of Oracle SQL from the server by injec
 ### Solution
 The original SQL query is something along the lines of: `SELECT * FROM table WHERE category='{category}' ...`. \
 With the above information, we can first submit a non-malicious request and observe how many columns we expect the table to have. In this lab, the following is returned upon entering `category=Gifts`:
+
 <img src="./oracle-gifts.png" width="400">
 
 We can observe a list of four items, each with a title and description. Therefore, we could perhaps guess that it has 2 or 3 columns, depending on whether or not this table has an `id` column.
