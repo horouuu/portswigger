@@ -299,3 +299,58 @@ And just like that, the holy grail:
     <th>cpnquymz0d5ix4x8chi1</th>
 </tr>
 ```
+
+---
+
+## 11. Blind SQL injection with conditional responses
+<img src="./blind-login.png" width=400>
+
+### Description
+Another difficulty spike.
+The lab introduces a lab environment that tracks our analytics using a cookie in our requests. The lab has a SQL injection vulnerability, but returns neither its query nor its errors. However, the page displays a "Welcome back!" message somewhere inside it if the query returns 1 or more rows. The task is to find the password for the user `administrator`. We are given three details: the login details are stored in `users`, and it has two columns: `username` and `password`.
+
+The TrackingId field in the cookies had the value `v6K4PGGFuN7YPSCz`.
+
+### Solution
+First, I had to check how many columns the queried table had using BurpSuite's Intruder and the bash script from [5](#7-sql-injection-union-attack-determining-the-number-of-columns-returned-by-the-query):
+`UNION SELECT {nulls}`
+Translated to:
+`v6K4PGGFuN7YPSCz'+UNION+SELECT+{nulls}+--+`
+
+However, instead of merely looking at the response codes in Intruder's entry table, I had to look at the "length" field. This is because the only difference we can observe every query is whether or not `Welcome back!` is printed, which means a row had been found.
+<img src="./blind-login-columns.png" width=400>
+
+As seen in the image above, the request with one `NULL` had length 3431 instead of 3370, which likely means that `Welcome back!` had been reflected in the HTML. For this, BurpSuite also provides a "grep matching" function in Intruder, but I chose to go with the length method for now as it was consistent and the attack was already underway.
+
+After confirming that it has only one column (we can assume that it is a string column as the cookie is a string), we now need to ensure the `users` table along with its columns `username` and `password` exist. This is trivial with the following query:
+`AND (SELECT 'a' FROM users WHERE username='administrator')='a'`
+Translated to:
+`v6K4PGGFuN7YPSCz'+AND+(SELECT+'a'+FROM+users+WHERE+username=%3d'administrator')%3d'a'+--+`
+Note that the cookie must stay as the first half of the fragment must be a true assertion for us to be able to determine if the latter half is true. The above query essentially returns a character "a" if the user `administrator` exists, which guarantees that the column exists.
+
+We may also check that `password` exists through a similar query, but for brevity this will be excluded.
+
+Now, we need to find out how long the password is. I achieved this by using the following query in BurpSuite's Intruder:
+`AND (SELECT 'a' FROM users WHERE username='administrator' AND LENGTH(password) > {number})='a'`
+In the above, `{number}` translates to the number list I'd inputted into Intruder's payload list. For this lab, I did 1 to 100. 
+Translated:
+`v6K4PGGFuN7YPSCz'+AND+(SELECT+'a'+FROM+users+WHERE+username%3d'administrator'+AND+LENGTH(password)>{number})%3d'a'+-+`
+Essentially, the above will only return true if the length of `password` is larger than `{number}`. Combined with repeater, we wait until the response returned drops in length, which is when `Welcome back!` stops being reflected in the HTML:
+<img src="./blind-login-pwd-len.png" width=400>
+
+As seen above, the length of the response dropped at 20. Given that the check used was `>`, this means the password's length is exactly 20 lowercase alphanumeric characters (as prescribed by the lab instructions). Therefore, all that's left to do is check what character was at every position:
+`AND (SELECT SUBSTRING(password,{pos},1) FROM users WHERE username='administrator')={char}`
+Translated:
+`v6K4PGGFuN7YPSCz'+AND+(SELECT+SUBSTRING(password,{pos},1)+FROM+users+WHERE+username%3d'administrator')%3d{char}`
+`{pos}` and `{char}` will be substituted using Intruder's Cluster Bomb mode to iterate through all positions using all characters.
+The above iterates through all 20 positions, each of which could be 36 alphanumeric characters, for a total of 720 queries (this was REALLY slow on the community version!!).
+<img src="./blind-login-brute-alpha.png" width=400>
+<img src="./blind-login-brute-nums.png" width=400>
+
+I had to split numbers into another search as I had forgotten that the password could be alphanumeric, not just alphabetical. In any case, the 2nd picture showcases BurpSuite Intruder's "grep search" functionality within the `Welcome back!` column. In this case though, looking at the `length` field would have sufficed.
+
+As seen in the images, after about 1 ~~century~~ hour of waiting, we now have the correct characters for every position. 
+Piecing them together gives us the flag: 
+`y4j1xzs4bdxkpc04a8b6`
+
+With the above, I logged into the site as `administrator` and finished the lab!
