@@ -403,16 +403,24 @@ The above request resulted in a `200 OK` when I submitted it, strongly suggestin
 The above ensures that all three exist all in one query. If an error occurs at all, that means one of them does not exist, and extra checks are required to ascertain which one it is. When I tried the query, it returned a `200 OK`, meaning all three must exist as no errors occured.
 
 Similarly to [11](#11-blind-sql-injection-with-conditional-responses), we must now check how long the password is to prepare for the brute-force attack. However, as there is no way to engage with the response of the query, we must use a query that short-circuits into an error if a condition is fulfilled. One way we can do this is by using the following:
-> `SELECT CASE WHEN {case} THEN {out1} ELSE {out2} END`
+> ```sql
+> SELECT CASE WHEN {case} THEN {out1} ELSE {out2} END
+> ```
 
 If we insert an error-invoking statement inside either `{out1}` or `{out2}`, then the server will show us a `500 Internal Server Error` when that condition is fulfilled, which makes it easy for us to tell if the `{case}` is fulfilled or not:
-> `SELECT CASE WHEN {case} THEN '' ELSE TO_CHAR(1/0) END`
+> ```sql
+> SELECT CASE WHEN LENGTH(password)>{seq} THEN '' ELSE TO_CHAR(1/0) END
+> ```
 
 As seen, I chose `TO_CHAR(1/0)` as `1/0` will trigger a simple division-by-zero error. As for the `{case}`, we should use the length of the password:
-> `SELECT CASE WHEN LENGTH(password)>{seq} THEN '' ELSE TO_CHAR(1/0) END`
+> ```sql
+> SELECT CASE WHEN LENGTH(password)>{seq} THEN '' ELSE TO_CHAR(1/0) END
+> ```
 
 `{seq}` will be iterated by BurpSuite Intruder's Cluster Bomb mode, which I've configured to go from 1 to 200. We put the error case after `ELSE` to make it easier to differentiate between a syntax error and a positive case. However, this query will work regardless should the conditions swap places, assuming the syntax is correct. The final payload is as follows:
-> `ygERiCVbJs6ai6ZH'||(SELECT+CASE+WHEN+LENGTH(password)>{seq}+THEN+''+ELSE+TO_CHAR(1/0)+END+FROM+users+WHERE+username%3d'administrator')+--+`
+> ```
+> ygERiCVbJs6ai6ZH'||(SELECT+CASE+WHEN+LENGTH(password)>{seq}+THEN+''+ELSE+TO_CHAR(1/0)+END+FROM+users+WHERE+username%3d'administrator')+--+
+> ```
 
 The final part `WHERE username='administrator'` is important as the first half of the query will return only one row. If this is not present, then all the requests will return `500 Internal Server Error` if there is more than one entry in `users`.
 
@@ -427,7 +435,7 @@ As seen, the status code goes from `200` to `500` as `seq=20`. This means that t
 > ygERiCVbJs6ai6ZH'||(SELECT+CASE+WHEN+SUBSTR(password,{seq},1)%3d'{char}'+THEN+TO_CHAR(1/0)+ELSE+''+END+FROM+users+WHERE+username%3d'administrator')+--+
 >```
 
-~~Now we wait a century for 720 requests to finish...~~
+~~Now we wait a century for 720 requests to finish...~~ \
 Done! The following is the result of the Cluster Bomb attack:
 <img src="./blind-error-pwd-brute.png" width=400>
 
