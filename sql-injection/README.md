@@ -66,7 +66,10 @@ Difficulty ramped a bit with this one.
 The lab entailed exfiltrating details about the tables present within the database along with the columns of a particular table, on top of exfiltrating data out of that particular table. The goal was to find the account details for the user `administrator`.
 
 ### Solution
-Before this question, we have only had access to the `products` table. However, we need to retrieve user details in this question. Therefore, we needed a way to find all the existing tables on the database. It was specified that the database was non-Oracle, so we may retrieve all database names with the query `SELECT table_name FROM information_schema.tables`. We can apply the previous tricks to fit this into a union in the context of this lab: `UNION SELECT table_name, NULL FROM information_schema.tables`. 
+Before this question, we have only had access to the `products` table. However, we need to retrieve user details in this question. Therefore, we needed a way to find all the existing tables on the database. It was specified that the database was non-Oracle, so we may retrieve all database names with the query `SELECT table_name FROM information_schema.tables`. 
+
+We can apply the previous tricks to fit this into a union in the context of this lab: `UNION SELECT table_name, NULL FROM information_schema.tables`. 
+
 The payload to retrieve all database names is as follows:
 `'+UNION+SELECT+table_name,+NULL+FROM+information_schema.tables+--+`
 
