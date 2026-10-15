@@ -286,6 +286,7 @@ Similarly to [9](#9-sql-injection-union-attack-retrieving-data-from-other-tables
 
 ### Solution
 This lab was rather simple. First, I had to repeat [7](#7-sql-injection-union-attack-determining-the-number-of-columns-returned-by-the-query) and [8](#8-sql-injection-union-attack-finding-a-column-containing-text) to find the number of columns as well as which one was compatible with text. Using my previous bash scripts and BurpSuite's Intruder, I was able to find that there were two columns, but surprisingly this time only the 2nd column was compatible with text:
+
 <img src="./login-one-column-burp.png" width=400>
 
 With that, I was ready to attack:
@@ -318,6 +319,7 @@ Translated to:
 `v6K4PGGFuN7YPSCz'+UNION+SELECT+{nulls}+--+`
 
 However, instead of merely looking at the response codes in Intruder's entry table, I had to look at the "length" field. This is because the only difference we can observe every query is whether or not `Welcome back!` is printed, which means a row had been found.
+
 <img src="./blind-login-columns.png" width=400>
 
 As seen in the image above, the request with one `NULL` had length 3431 instead of 3370, which likely means that `Welcome back!` had been reflected in the HTML. For this, BurpSuite also provides a "grep matching" function in Intruder, but I chose to go with the length method for now as it was consistent and the attack was already underway.
@@ -336,6 +338,7 @@ In the above, `{number}` translates to the number list I'd inputted into Intrude
 Translated:
 `v6K4PGGFuN7YPSCz'+AND+(SELECT+'a'+FROM+users+WHERE+username%3d'administrator'+AND+LENGTH(password)>{number})%3d'a'+-+`
 Essentially, the above will only return true if the length of `password` is larger than `{number}`. Combined with repeater, we wait until the response returned drops in length, which is when `Welcome back!` stops being reflected in the HTML:
+
 <img src="./blind-login-pwd-len.png" width=400>
 
 As seen above, the length of the response dropped at 20. Given that the check used was `>`, this means the password's length is exactly 20 lowercase alphanumeric characters (as prescribed by the lab instructions). Therefore, all that's left to do is check what character was at every position:
@@ -344,6 +347,7 @@ Translated:
 `v6K4PGGFuN7YPSCz'+AND+(SELECT+SUBSTRING(password,{pos},1)+FROM+users+WHERE+username%3d'administrator')%3d{char}`
 `{pos}` and `{char}` will be substituted using Intruder's Cluster Bomb mode to iterate through all positions using all characters.
 The above iterates through all 20 positions, each of which could be 36 alphanumeric characters, for a total of 720 queries (this was REALLY slow on the community version!!).
+
 <img src="./blind-login-brute-alpha.png" width=400>
 <img src="./blind-login-brute-nums.png" width=400>
 
