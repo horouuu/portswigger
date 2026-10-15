@@ -253,10 +253,10 @@ Then, I had to ensure that both the columns were compatible with strings. Simila
 
 Now it's the easy part. I moved to BurpSuite's Repeater as I no longer needed iterative requests and quickly whipped up a request to figure out what version of SQL the server was running, like in [2](#3-sql-injection-attack-querying-the-database-type-and-version-on-oracle) and [4](#4-sql-injection-attack-querying-the-database-type-and-version-on-mysql-and-microsoft).
 I translated the query `UNION SELECT VERSION(), NULL` into the injection payload `'+UNION+SELECT+VERSION(),+NULL+--+`. Luckily, this worked first try, meaning the database was on MySQL or PostgreSQL. Upon inspecting the reflected HTML, we can find the exact version:
-```
-PostgreSQL 12.22 (Ubuntu 12.22-0ubuntu0.20.04.4) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 9.4.0-1ubuntu1~20.04.2) 9.4.0, 64-bit
-users
-```
+> ```
+> PostgreSQL 12.22 (Ubuntu 12.22-0ubuntu0.20.04.4) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 9.4.0-1ubuntu1~20.04.2) 9.4.0, 64-bit
+> users
+> ```
 
 Now that we know it's PostgreSQL, we can list all tables, find the table containing user details, and list out the columns of that table ([5](#5-sql-injection-attack-listing-the-database-contents-on-non-oracle-databases), [6](#6-sql-injeciton-attack-listing-the-database-contents-on-oracle-databases)). PostgreSQL uses the `information_schema` table to store details about table and column names, so I created the following query:
 > ```sql
