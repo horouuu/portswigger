@@ -71,6 +71,7 @@ The payload to retrieve all database names is as follows:
 `'+UNION+SELECT+table_name,+NULL+FROM+information_schema.tables+--+`
 
 Submitting the above payload results in the following (I started using BurpSuite as it was a lot faster to repeatedly test):
+
 <img src="union-login-burp-tables.png" width=400>
 
 As seen, we managed to get the database to regurgitate all of its tables onto the HTML. I did a quick `CTRL+F` for the keyword "user", and found one that seems to be the most likely candidate: `users_rrudmq`. It seems like they've attached the hash value `rrudmq` to the table name so that people couldn't just guess!
@@ -80,6 +81,7 @@ Therefore, the final payload for this is:
 `'+UNION+SELECT+column_name,+NULL,FROM,information_schema.columns+WHERE+table_name%3d'users_rrudmq'+--+`
 
 Upon submitting this payload using BurpSuite, the following is what I received:
+
 <img src="./union-login-burp-users.png" width=400>
 
 As seen, even the column names had hash values attached to them to prevent guessing. There's even an extra "email" column to prevent using the wildcard operator to simply fetch everything (as it would cause an error in the `UNION` because the `products` table only had 2 columns).
@@ -177,12 +179,15 @@ NULL, NULL, NULL
 ```
 
 I used this script to generate a series of NULLs up to 250 and loaded it into BurpSuite's Intruder, as follows:
+
 <img src="./injection-column-number-payload.png" width=400>
 
 I then included a payload position in the request to be substituted every iteration:
+
 <img src="./injection-column-number-req.png" width=400>
 
 I launched the attack and waited patiently... only for it to succeed on attempt 3.
+
 <img src="./injection-column-number-burp.png" width=400>
 
 Just like that, the lab was finished. The query had three columns. How anti-climactic.
@@ -256,10 +261,10 @@ Which I translated into the following injection payload:
 `'+UNION+SELECT+table_name,+NULL+FROM+information_schema.tables+--+`
 
 After scanning the HTML response, it turns out it was a normal-sounding name this time: `users`.
-I proceeded to find the columns of the `users` table using the following query:
-`UNION SELECT column_name, NULL FROM information_schema.columns WHERE table_name='users'`
-Which I translated into the following payload:
-`'+UNION+SELECT+column_name,+NULL+FROM+information_schema.columns+WHERE+table_name%3d'users'+--+`
+I proceeded to find the columns of the `users` table using the following query:  
+`UNION SELECT column_name, NULL FROM information_schema.columns WHERE table_name='users'`  
+Which I translated into the following payload:  
+`'+UNION+SELECT+column_name,+NULL+FROM+information_schema.columns+WHERE+table_name%3d'users'+--+`  
 
 The table had three (normal-sounding) column names: `username` `password` and `email`.
 As the last exfiltration step, I extracted the username and password of `administrator`:
