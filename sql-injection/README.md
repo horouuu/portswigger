@@ -313,7 +313,7 @@ The lab introduces a lab environment that tracks our analytics using a cookie in
 The TrackingId field in the cookies had the value `v6K4PGGFuN7YPSCz`.
 
 ### Solution
-First, I had to check how many columns the queried table had using BurpSuite's Intruder and the bash script from [5](#7-sql-injection-union-attack-determining-the-number-of-columns-returned-by-the-query):
+First, I had to check how many columns the queried table had using BurpSuite's Intruder and the bash script from [7](#7-sql-injection-union-attack-determining-the-number-of-columns-returned-by-the-query):
 `UNION SELECT {nulls}`
 Translated to:
 `v6K4PGGFuN7YPSCz'+UNION+SELECT+{nulls}+--+`
