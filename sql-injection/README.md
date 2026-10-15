@@ -376,8 +376,8 @@ The value of the TrackingId field used for page analytics in this question is `y
 
 ### Solution
 First, I needed to find out the version of SQL running on the server. Since the server returns errors to the front end, we can try to see if it's MySQL/PostgreSQL first. If an error is returned, then it's likely to be Oracle. This time, we use concatenation as we do not have any feedback to tell between true or false using logical `AND` operations: 
-> `SELECT VERSION()` 
-> \>>> 
+> `SELECT VERSION()` \
+> \>>> \
 > `ygERiCVbJs6ai6ZH'||(SELECT VERSION() FROM DUAL)+--+` 
 
 The reason why we use `FROM DUAL` regardless of version is because Oracle SQL DBs require a `FROM` statement to be used with `SELECT`. Since it's compatible with both, doing this will save us the checks. 
