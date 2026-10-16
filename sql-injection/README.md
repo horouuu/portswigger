@@ -534,3 +534,39 @@ For which the application returns the following error:
 We use `LIMIT 1` because the account `administrator` is likely to be at the top in the context of this lab. However, in production environments this may not work and we may need other means of exfiltrating the `administrator` account's details.
 
 With the above password, I logged into the `administrator` account and the lab was finished.
+
+---
+
+## 14. Blind SQL injection with time delays
+<img src="./sleep.png" width=400>
+
+### Description
+The lab featured a vulnerable application that did not respond with query results or errors. To complete the lab, one must invoke a time delay on the server side using a SQL query.
+
+The analytics cookie used in this lab was `qXdVxOlcKhKnLufi`.
+
+### Solution
+This one was rather straight forward. First I found different sleep commands for different DB versions:
+>```
+> MySQL - SLEEP(s)
+> PostgreSQL - SLEEP(s)
+> Oracle - DBMS_SESSION.SLEEP(s)
+>```
+
+All that was left to do was to try them sequentially as a concatenation to the result of the cookie query, using BurpSuite Repeater:
+>```sql
+> SELECT SLEEP(10)
+> >>>
+> qXdVxOlcKhKnLufi'||(SELECT+SLEEP(10))+--+
+>```
+
+The above did not work. However, eventually I tried:
+>```sql
+> SELECT PG_SLEEP(10)
+> >>>
+> qXdVxOlcKhKnLufi'||(SELECT+PG_SLEEP(10))+--+
+>```
+
+Which incurred a 10-second delay before getting the response from the server. This also means that the underlying DB was PostgreSQL.
+
+Upon checking the lab status, it was indeed finished. So, lab complete!
