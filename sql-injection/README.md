@@ -803,7 +803,7 @@ I took the output of this and attached it beside the `1` between the `storeId` p
 Thankfully, it seems to have been some sort of firewall or external configuration and NOT some application-layer logic.
 
 As seen, we now have a mapping of each user to their password. The following are the details to `administrator`:
-> `username: administrator`
+> `username: administrator` \
 > `password: n92l2t0nsj28y4emaqtj`
 
 With the above details, I attempted to log in...
