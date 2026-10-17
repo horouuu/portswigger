@@ -1,6 +1,6 @@
 # SQL Injection
 ## 1. SQL injection vulnerability in WHERE clause allowing retrieval of hidden data
-<img src="./sql-where.png" width="400">
+<img src="img/sql-where/sql-where.png" width="400">
 
 ### Description
 The lab entailed exploiting the SQL query `SELECT * FROM products WHERE category = '{category}' AND released = 1` through a SQL injection vulnerability.
@@ -12,7 +12,7 @@ Encoding `'OR released=0` as `'OR%20released%3d0%20--` and submitting it as a pa
 ---
 
 ## 2. SQL injection vulnerability allowing login bypass
-<img src="sql-login.png" width="400">
+<img src="img/sql-login/sql-login.png" width="400">
 
 ### Description
 The lab entailed exploiting a vulnerable login form through SQL injection. The goal was to force a login to the account `administrator`.
@@ -23,7 +23,7 @@ Submitting the form with the username `' OR username='administrator' AND 1=1 --`
 ---
 
 ## 3. SQL injection attack, querying the database type and version on Oracle
-<img src="./oracle-version.png" width="400">
+<img src="img/oracle/oracle-version.png" width="400">
 
 ### Description
 The lab entailed exfiltrating the version of Oracle SQL from the server by injecting a payload through the URL parameters.
@@ -32,7 +32,7 @@ The lab entailed exfiltrating the version of Oracle SQL from the server by injec
 The original SQL query is something along the lines of: `SELECT * FROM table WHERE category='{category}' ...`. \
 With the above information, we can first submit a non-malicious request and observe how many columns we expect the table to have. In this lab, the following is returned upon entering `category=Gifts`:
 
-<img src="./oracle-gifts.png" width="400">
+<img src="img/oracle/oracle-gifts.png" width="400">
 
 We can observe a list of four items, each with a title and description. Therefore, we could perhaps guess that it has 2 or 3 columns, depending on whether or not this table has an `id` column.
 
@@ -45,7 +45,7 @@ For this lab, I simply guessed that the `products` table had two columns, for wh
 ---
 
 ## 4. SQL injection attack, querying the database type and version on MySQL and Microsoft
-<img src="./mysql-version.png" width="400">
+<img src="img/mysql/mysql-version.png" width="400">
 
 ### Description
 Similar to question [3](#3-sql-injection-attack-querying-the-database-type-and-version-on-oracle), but the underlying database is MySQL.
@@ -60,6 +60,7 @@ I have also started to use `+` instead of `%20` for the sake of ~~my sanity~~ re
 ---
 
 ## 5. SQL injection attack, listing the database contents on non-Oracle databases
+<img src="img/union-login/union-login.png" width=400>
 
 ### Description
 Difficulty ramped a bit with this one.
@@ -75,7 +76,7 @@ The payload to retrieve all database names is as follows:
 
 Submitting the above payload results in the following (I started using BurpSuite as it was a lot faster to repeatedly test):
 
-<img src="union-login-burp-tables.png" width=400>
+<img src="img/union-login/union-login-burp-tables.png" width=400>
 
 As seen, we managed to get the database to regurgitate all of its tables onto the HTML. I did a quick `CTRL+F` for the keyword "user", and found one that seems to be the most likely candidate: `users_rrudmq`. It seems like they've attached the hash value `rrudmq` to the table name so that people couldn't just guess!
 
@@ -85,7 +86,7 @@ Therefore, the final payload for this is:
 
 Upon submitting this payload using BurpSuite, the following is what I received:
 
-<img src="./union-login-burp-users.png" width=400>
+<img src="img/union-login/union-login-burp-users.png" width=400>
 
 As seen, even the column names had hash values attached to them to prevent guessing. There's even an extra "email" column to prevent using the wildcard operator to simply fetch everything (as it would cause an error in the `UNION` because the `products` table only had 2 columns).
 
@@ -93,12 +94,14 @@ As the final step, I only had to fetch the columns `username_kthzzr` and `passwo
 The following payload solved this:
 `'+UNION+SELECT+username_kthzzr,+password_vxdqhk+FROM+users_rrudmq+--+`
 
+<img src="img/union-login/union-login-burp-admin.png" width=400>
+
 And with the details fetched, I logged into the account and solved the lab.
 
 ---
 
 ## 6. SQL injeciton attack, listing the database contents on Oracle databases
-<img src="./union-login-oracle.png" width=400>
+<img src="img/union-login/union-login-oracle.png" width=400>
 
 ### Description
 Almost the same as [5.](#5-sql-injection-attack-listing-the-database-contents-on-non-oracle-databases), except the underlying database is Oracle.
@@ -151,7 +154,7 @@ With that, I logged into the administrator account, and the lab was solved. Not 
 ---
 
 ## 7. SQL injection UNION attack, determining the number of columns returned by the query
-<img src="./injection-column-number.png" width=400>
+<img src="img/injection-column/injection-column-number.png" width=400>
 
 ### Description
 Another ramp-up in difficulty. The lab entails figuring out how many columns are in the table that contains the product details through a SQL injection UNION attack.
@@ -183,22 +186,22 @@ The above bash script will take two inputs, a minimum number and a maximum numbe
 
 I used this script to generate a series of NULLs up to 250 and loaded it into BurpSuite's Intruder, as follows:
 
-<img src="./injection-column-number-payload.png" width=400>
+<img src="img/injection-column/injection-column-number-payload.png" width=400>
 
 I then included a payload position in the request to be substituted every iteration:
 
-<img src="./injection-column-number-req.png" width=400>
+<img src="img/injection-column/injection-column-number-req.png" width=400>
 
 I launched the attack and waited patiently... only for it to succeed on attempt 3.
 
-<img src="./injection-column-number-burp.png" width=400>
+<img src="img/injection-column/injection-column-number-burp.png" width=400>
 
 Just like that, the lab was finished. The query had three columns. How anti-climactic.
 
 ---
 
 ## 8. SQL injection UNION attack, finding a column containing text
-<img src="./text-column.png" width=400>
+<img src="./img/text-column/text-columnumn.png" width=400>
 
 ### Description
 An extension of [7](#7-sql-injection-union-attack-determining-the-number-of-columns-returned-by-the-query). In this lab we have to find which one of the three columns is compatible with string values. As this is similar to Q7, some images that were included there will be omitted and instead be described by text.
@@ -236,12 +239,12 @@ Naturally, I made a bash script to help me do this, in case this is needed again
 The above script does exactly what I described and saves it to a text file, which I could load into BurpSuite's Intruder.
 
 After starting the attack, it turned out that the 2nd column was the one that was compatible with string values:
-<img src="./text-column-string.png" width=400>
+<img src="./img/text-column/text-columnumn-string.png" width=400>
 
 Lab finished!
 
 ## 9. SQL injection UNION attack, retrieving data from other tables
-<img src="./login-diff-table.png" width=400>
+<img src="img/login/login-diff-table.png" width=400>
 
 ### Description
 The culmination of what I did in 1-8. The lab entails injecting queries into a query fragment for a table that is separate from where user details are stored in order to find details for the user `administrator`. The lab completes upon successful login with the account's details.
@@ -291,7 +294,7 @@ Using these details, I logged in, and the lab was done. Phew!
 ---
 
 ## 10. SQL injection UNION attack, retrieving multiple values in a single column
-<img src="./login-one-column.png" width=400>
+<img src="img/login/login-one-column.png" width=400>
 
 ### Description
 Similarly to [9](#9-sql-injection-union-attack-retrieving-data-from-other-tables), this lab entails finding the details of the user `administrator` whilst starting out in a different table. Except, this time the lab provides to us the name of the table as well as its columns: `users` with columns `username` and `password`.
@@ -299,7 +302,7 @@ Similarly to [9](#9-sql-injection-union-attack-retrieving-data-from-other-tables
 ### Solution
 This lab was rather simple. First, I had to repeat [7](#7-sql-injection-union-attack-determining-the-number-of-columns-returned-by-the-query) and [8](#8-sql-injection-union-attack-finding-a-column-containing-text) to find the number of columns as well as which one was compatible with text. Using my previous bash scripts and BurpSuite's Intruder, I was able to find that there were two columns, but surprisingly this time only the 2nd column was compatible with text:
 
-<img src="./login-one-column-burp.png" width=400>
+<img src="img/login/login-one-column-burp.png" width=400>
 
 With that, I was ready to attack:
 > ```sql
@@ -318,7 +321,7 @@ And just like that, the holy grail:
 ---
 
 ## 11. Blind SQL injection with conditional responses
-<img src="./blind-login.png" width=400>
+<img src="img/blind-login/blind-login.png" width=400>
 
 ### Description
 Another difficulty spike.
@@ -336,7 +339,7 @@ First, I had to check how many columns the queried table had using BurpSuite's I
 
 However, instead of merely looking at the response codes in Intruder's entry table, I had to look at the "length" field. This is because the only difference we can observe every query is whether or not `Welcome back!` is printed, which means a row had been found.
 
-<img src="./blind-login-columns.png" width=400>
+<img src="img/blind-login/blind-login-columns.png" width=400>
 
 As seen in the image above, the request with one `NULL` had length 3431 instead of 3370, which likely means that `Welcome back!` had been reflected in the HTML. For this, BurpSuite also provides a "grep matching" function in Intruder, but I chose to go with the length method for now as it was consistent and the attack was already underway.
 
@@ -360,7 +363,7 @@ In the above, `{number}` translates to the number list I'd inputted into Intrude
 
 Essentially, the above will only return true if the length of `password` is larger than `{number}`. Combined with repeater, we wait until the response returned drops in length, which is when `Welcome back!` stops being reflected in the HTML:
 
-<img src="./blind-login-pwd-len.png" width=400>
+<img src="img/blind-login/blind-login-pwd-len.png" width=400>
 
 As seen above, the length of the response dropped at 20. Given that the check used was `>`, this means the password's length is exactly 20 lowercase alphanumeric characters (as prescribed by the lab instructions). Therefore, all that's left to do is check what character was at every position:
 > ```sql
@@ -371,8 +374,8 @@ As seen above, the length of the response dropped at 20. Given that the check us
 `{pos}` and `{char}` will be substituted using Intruder's Cluster Bomb mode to iterate through all positions using all characters. \
 The above iterates through all 20 positions, each of which could be 36 alphanumeric characters, for a total of 720 queries (this was REALLY slow on the community version!!).
 
-<img src="./blind-login-brute-alpha.png" width=400>
-<img src="./blind-login-brute-nums.png" width=400>
+<img src="img/blind-login/blind-login-brute-alpha.png" width=400>
+<img src="img/blind-login/blind-login-brute-nums.png" width=400>
 
 I had to split numbers into another search as I had forgotten that the password could be alphanumeric, not just alphabetical. In any case, the 2nd picture showcases BurpSuite Intruder's "grep search" functionality within the `Welcome back!` column. In this case though, looking at the `length` field would have sufficed.
 
@@ -385,7 +388,7 @@ With the above, I logged into the site as `administrator` and finished the lab!
 ---
 
 ## 12. Blind SQL injection with conditional errors
-<img src="./blind-error.png" width=400>
+<img src="img/blind-error/blind-error.png" width=400>
 
 ### Description
 A harder version of [11](#11-blind-sql-injection-with-conditional-responses). The lab is exactly the same, except the underlying application logic no longer responds conditionally. We are only able to see errors reflected through the HTML. To finish the lab, the details to the user `administrator` must be used to log in successfully.
@@ -444,7 +447,7 @@ The final part `WHERE username='administrator'` is important as the first half o
 
 We receive the following results from Intruder:
 
-<img src="./blind-error-pwd-len.png" width=400>
+<img src="img/blind-error/blind-error-pwd-len.png" width=400>
 
 As seen, the status code goes from `200` to `500` as `seq=20`. This means that the password is of length exactly 20. With this, we can now start to brute-force the password, similar to [11](#11-blind-sql-injection-with-conditional-responses):
 > ```sql
@@ -456,7 +459,7 @@ As seen, the status code goes from `200` to `500` as `seq=20`. This means that t
 ~~Now we wait a century for 720 requests to finish...~~ \
 Done! The following is the result of the Cluster Bomb attack:
 
-<img src="./blind-error-pwd-brute.png" width=400>
+<img src="img/blind-error/blind-error-pwd-brute.png" width=400>
 
 This time, I've filtered the results to requests whose responses were `500 Internal Server Error`, as it is available to the Community Edition. I think the columns filter by ASCII value, so the indices are spliced, but at least they're in order this time. Taking the above values and putting them in order, we get the password to `administrator`:
 > `oplaoviu3v6obqe2dl4p3`
@@ -466,7 +469,7 @@ And with that, I logged in and the lab was completed!
 ---
 
 ## 13. Visible error-based SQL injection
-<img src="./error-based.png" width=400>
+<img src="img/error-based/error-based.png" width=400>
 
 ### Description
 The lab involves abusing an exposed (detailed) SQL error in the application to log in to an administrator account.
@@ -538,7 +541,7 @@ With the above password, I logged into the `administrator` account and the lab w
 ---
 
 ## 14. Blind SQL injection with time delays
-<img src="./sleep.png" width=400>
+<img src="img/sleep/sleep.png" width=400>
 
 ### Description
 The lab featured a vulnerable application that did not respond with query results or errors. To complete the lab, one must invoke a time delay on the server side using a SQL query.
@@ -574,6 +577,7 @@ Upon checking the lab status, it was indeed finished. So, lab complete!
 ---
 
 ## 15. Blind SQL injection with time delays and information retrieval
+<img src="./img/sleep-exfil/sleep-exfil.png width=400>
 
 ### Description
 Similar to [14](#14-blind-sql-injection-with-time-delays), but tasked to retrieve the user `administrator`'s password on top.
@@ -588,7 +592,7 @@ Afterwards, I did a similar query to [12](#12-blind-sql-injection-with-condition
 > '||(SELECT+CASE+WHEN+LENGTH(password)>{seq}+THEN+''+ELSE+PG_SLEEP(10)+END+FROM+users+WHERE+username%3d'administrator')+--+
 > ```
 
-<img src="./sleep-exfil-pwd-len.png" width=400>
+<img src="img/sleep-exfil/sleep-exfil-pwd-len.png" width=400>
 
 In the query, I set it to only trigger the time delay once we've broken the condition so that I'd only have to wait 10 seconds upon sucess. As shown in the image, the password has length 20, just like the previous questions.
 
@@ -599,7 +603,7 @@ Now, similar to [12](#12-blind-sql-injection-with-conditional-errors), I brute-f
 > '||(SELECT+CASE+WHEN+SUBSTR(password,{seq},1)%3d'{char}'+THEN+PG_SLEEP(10)+ELSE+''+END+FROM+users+WHERE+username%3d'administrator')+--+
 > ```
 
-<img src="./sleep-exfil-pwd-brute.png" width=400>
+<img src="img/sleep-exfil/sleep-exfil-pwd-brute.png" width=400>
 
 Sorting by response time, we can now find the 20 characters that make up the `administrator`'s password:
 
@@ -610,7 +614,7 @@ Now we can log in and finish the lab!
 ---
 
 ## 16. Blind SQL injection with out-of-band interaction.
-<img src="./xxe-blind.png" width=400>
+<img src="img/xxe-blind/xxe-blind.png" width=400>
 
 ### Description
 This was a **huge** difficulty leap.
@@ -619,6 +623,7 @@ For this question, we are given a more "secure" application, in that:
 - It does not expose any query responses.
 - It does not expose any query errors.
 - It does not expose any time delays as the requests are performed asynchronously.
+
 However, it is still succeptible to SQL injection.
 
 ### Solution
@@ -685,7 +690,7 @@ The `DOCTYPE` keyword here defines the root element as `<root>`. The most intere
 Essentially, this means that once this XML fragment is parsed, the parser may resolve the `%remote` macro to perform a nameserver lookup for the host we've provided. What's interesting is that this probably means we could exfiltrate data by attaching it as a subdomain to the host.
 
 To completely solve the lab, I needed to use Burp's Collaborator to generate a "disposable" hostname that I'll input into Repeater:
-<img src="./xxe-blind-gen-collab.png" width=400>
+<img src="img/xxe-blind/xxe-blind-gen-collab.png" width=400>
 
 It really was as easy as the image implies. After I've copied that, I substitute the filler text in the cheatsheet payload, URL-encode it, then attach it to a concatenation:
 > ```sql
@@ -693,7 +698,7 @@ It really was as easy as the image implies. After I've copied that, I substitute
 > ```
 
 Once a response was received, I can check back on Collaborator to see what sort of requests I've received:
-<img src="./xxe-blind-collab.png" width=400>
+<img src="img/xxe-blind/xxe-blind-collab.png" width=400>
 
 As seen, Collaborator received a total of four DNS-related interactions from the lab application. What's interesting is that the subdomain of the Collaborator host is noted down as "payload," which could mean that we'll use the subdomain to exfiltrate information in the future.
 
