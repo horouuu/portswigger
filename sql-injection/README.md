@@ -706,6 +706,8 @@ As seen, Collaborator received a total of four DNS-related interactions from the
 
 But for now, lab complete!
 
+---
+
 ## 17. Blind SQL injection with out-of-band data exfiltration
 <img src="./img/xxe-exfil/xxe-exfil.png" width=400>
 
@@ -746,3 +748,65 @@ As seen, the application tried to look up the following host:
 From [16](#16-blind-sql-injection-with-out-of-band-interaction), we can see that the subdomain `yqwnkhh5zxvwbj4g3dl6` did not exist before, which means that this is indeed the password of the `administrator` account that we have attached above as a subdomain.
 
 I attempted to log in with the details.. and it worked! Lab complete! One more to go!
+
+---
+
+## 18. SQL injection with filter bypass via XML encoding
+<img src="./img/xml-filter/xml-filter.png" width=400>
+
+### Description
+This lab was very interesting. The lab is now back to an application that presents its queries on the front end, but it's now protected by something that detects SQL injection attacks. The task of the lab is to retrieve the administrator's username and password, but no admin username is specified.
+
+### Solution
+First, I inspected the packet and saw that the input was being sent using XML:
+> ```sql
+> <?xml version="1.0" encoding="UTF-8"?>
+>     <stockCheck>
+>         <productId>
+>             2
+>         </productId>
+>         <storeId>
+>             1
+>         </storeId>
+>     </stockCheck>
+So, I tried to see if I could simply attach a `UNION` attack after the `1` between the `storeId` tags:
+
+> ```sql
+> <?xml version="1.0" encoding="UTF-8"?>
+>     <stockCheck>
+>         <productId>
+>             2
+>         </productId>
+>         <storeId>
+>             1 UNION SELECT username || '-' || password FROM users -- 
+>         </storeId>
+>     </stockCheck>
+Unfortunately, life wasn't going to be that easy, and I saw the following response:
+
+<img src="./img/xml-filter/xml-blocked.png" width=400>
+
+I was in one of two situations:
+- A WAF (web application firewall) was intercepting the request due to a suspicous payload.
+- The application itself was filtering the payload and returning the `403 Forbidden`.
+
+I banked on it being the former, as if it were the latter I couldn't really figure out a way to bypass it without some extensive experimenting.
+
+There was one way I knew of to get past such filtering below the application layer. When HTTP packets are parsed, common encoding schemes are also automatically decoded, such as URL encoding, HTML hex encoding, and HTML decimal encoding. Since the payload was not a URL query this time around, I decided to try and encode the `UNION` attack in HTML hex encoding. There happens to be a nifty extension on BurpSuite called Hackverter, that allows for quick encoding and decoding:
+
+<img src="./img/xml-filter/xml-filter-hex.png" width=400> 
+
+<img src="./img/xml-filter/xml-hex-out.png" width=400>
+
+I took the output of this and attached it beside the `1` between the `storeId` pages. I received the following response:
+<img src="./img/xml-filter/xml-pwd.png" width=400>
+
+Thankfully, it seems to have been some sort of firewall or external configuration and NOT some application-layer logic.
+
+As seen, we now have a mapping of each user to their password. The following are the details to `administrator`:
+> `username: administrator`
+> `password: n92l2t0nsj28y4emaqtj`
+
+With the above details, I attempted to log in...
+...and success!
+
+The final lab of the SQL injection section is complete!!
