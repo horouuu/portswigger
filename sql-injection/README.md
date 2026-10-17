@@ -610,7 +610,7 @@ Now we can log in and finish the lab!
 ---
 
 ## 16. Blind SQL injection with out-of-band interaction.
-<img src="./xxe-blind.png", width=400>
+<img src="./xxe-blind.png" width=400>
 
 ### Description
 This was a **huge** difficulty leap.
