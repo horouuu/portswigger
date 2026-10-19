@@ -3,4 +3,4 @@ This repository contains all the labs I have done on [PortSwigger](https://ports
 
 ### [SQL injection](./sql-injection/README.md) - 18/18 [COMPLETE]
 
-### [Cross-Site Scripting](./xss/README.md) - 1/30 [CURRENT]
+### [Cross-Site Scripting](./xss/README.md) - 7/30 [CURRENT]
