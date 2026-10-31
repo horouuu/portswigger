@@ -192,9 +192,11 @@ To complete the exploit, I used ExifTool to inject my exploit into the `Comment`
 > ```
 
 Here's the original picture for reference:
+
 <img src="img/polyglot/random.jpg" width="200">
 
 And here's the version with the injected payload:
+
 <img src="img/polyglot/pwned.jpg" width="200">
 
 They look pretty much identical! But upon inspection using ExifTool, the injected payload has the following field in its metadata:
