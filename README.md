@@ -1,4 +1,4 @@
-# SE6002 - Labs
+# PortSwigger Labs
 This repository contains all the labs I have done on [PortSwigger](https://portswigger.net/).
 
 ### [SQL injection](./sql-injection/README.md) - 18/18 [COMPLETE]
