@@ -3,6 +3,8 @@ This repository contains all the labs I have done on [PortSwigger](https://ports
 
 ### [SQL injection](./sql-injection/README.md) - 18/18 [COMPLETE]
 
-### [Cross-Site Scripting](./xss/README.md) - 7/30 [CURRENT]
+### [Cross-Site Scripting](./xss/README.md) - 7/30
 
 ### [Path Traversal](./path-traversal/README.md) - 6/6 [COMPLETE]
+
+### [File Upload Vulnerabilities](./file-upload/README.md) 6/7 [CURRENT]
