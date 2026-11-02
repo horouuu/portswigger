@@ -169,7 +169,7 @@ Which means `carlos` was successfully deleted!
 <img src="img/method/method.png" width="400">
 
 ### Description
-Simple lab that involves exploiting an unprotected admin panel to delete the user `carlos`.
+Simple lab that involves exploiting an unprotected admin panel to promote the user `wiener` to administrator status.
 
 This time, the path is revealed to be `/admin`, but the server explicitly checks for authorization for certain request methods made to the admin endpoint.
 
@@ -301,3 +301,44 @@ It looks just as expected. However, upon inspection this response actually conta
 This would not work on the browser as it would likely just automatically redirect the client to `/login` as specified in the `Location` header. DevTools also would likely omit the response body of the redirect. However, Burp Proxy captures intermediary responses, so it was possible to inspect using Burp.
 
 I simply submitted the visible API key and completed the lab.
+
+---
+
+## 10. User ID controlled by request parameter, with unpredictable user IDs
+<img src="img/password-disclosure/password-disclosure.png" width="400">
+
+### Description
+Lab that involves deleting the user `carlos`.
+This time, the server has a password disclosure vulnerability.
+
+### Solution
+In the My Account page, I noticed that there was now a password field that's pre-filled with what's presumably my password. Naturally, I tried to set the `id` paremeter to `id=administrator` to try and see if I could gain access to the administrator's page. However, it simply redirects me to the login page.
+
+However, trying the same trick from [9](#9-user-id-controlled-by-request-parameter-with-unpredictable-user-ids) shows me that the redirect actually still leaks the account page of the user I input. I was able to get into the administrator's account page.
+
+What's even worse is that the HTML body actually **leaks** the pre-filled password in plaintext!
+
+> ```html
+> <input required type=password name=password value='a66gcn0w3k1qn7d4v9gv'/>
+> <button class='button' type='submit'> Update password </button>
+> ```
+
+From here, all I had to do was take the password and log in to `administrator:a66gcn0w3k1qn7d4v9gv`, where I was able to access the admin panel and delete `carlos`.
+
+---
+
+## 11. Insecure direct object references
+<img src="img/chat-idor/chat-idor.png" width="400">
+
+### Description
+Lab that involves logging into the user `carlos`.
+This time, the server has an IDOR (insecure direct object refernce) vulnerability.
+
+### Solution
+I first checked out the live chat functionality. I tried sending a few messages (which some kind of bot was responding to, suprisingly) and downloading the transcript. It turns out it downloads a text file with a number as its filename. As I downloaded more, it seems to just simply increment the name by one every time.
+
+I noticed that the first file was `2.txt`, meaning there must have been a `1.txt`. I used Burp Repeater to change the request URL to `/download-transcript/1.txt` and sent the request, to which I received the following response:
+
+<img src="img/chat-idor/chat-idor-res.png" width="400">
+
+In this chat, it seems like "You" was talking to someone about confirming their own password. They then proceeded to type it into the chat! I didn't know who this user was, but I simply guessed that it was `carlos` and tried the password, which worked.

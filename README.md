@@ -9,4 +9,4 @@ This repository contains all the labs I have done on [PortSwigger](https://ports
 
 ### [File Upload Vulnerabilities](./file-upload/README.md) 6/7
 
-### [Access Control Vulnerabilities](./access-control/README.md) 9/13 [CURRENT]
+### [Access Control Vulnerabilities](./access-control/README.md) 11/13 [CURRENT]
