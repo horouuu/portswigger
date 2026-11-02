@@ -244,7 +244,7 @@ I simply changed `id=wiener` to `id=carlos`, and I was presented with the page i
 <img src="img/guid/guid.png" width="400">
 
 ### Description
-Lab that involves stealing the API key of user `carlos`.
+Lab that involves stealing the API key of user `carlos`. \
 This time, `carlos` is assigned an unpredictable GUID.
 
 ### Solution
@@ -268,7 +268,7 @@ Which led me to the account page belonging to `carlos`, revealing his API key, a
 <img src="img/redirect/redirect.png" width="400">
 
 ### Description
-Lab that involves stealing the API key of user `carlos`.
+Lab that involves stealing the API key of user `carlos`. \
 This time, the server leaks information in a redirect response.
 
 ### Solution
@@ -308,7 +308,7 @@ I simply submitted the visible API key and completed the lab.
 <img src="img/password-disclosure/password-disclosure.png" width="400">
 
 ### Description
-Lab that involves deleting the user `carlos`.
+Lab that involves deleting the user `carlos`. \
 This time, the server has a password disclosure vulnerability.
 
 ### Solution
@@ -331,7 +331,7 @@ From here, all I had to do was take the password and log in to `administrator:a6
 <img src="img/chat-idor/chat-idor.png" width="400">
 
 ### Description
-Lab that involves logging into the user `carlos`.
+Lab that involves logging into the user `carlos`. \
 This time, the server has an IDOR (insecure direct object refernce) vulnerability.
 
 ### Solution
@@ -342,3 +342,60 @@ I noticed that the first file was `2.txt`, meaning there must have been a `1.txt
 <img src="img/chat-idor/chat-idor-res.png" width="400">
 
 In this chat, it seems like "You" was talking to someone about confirming their own password. They then proceeded to type it into the chat! I didn't know who this user was, but I simply guessed that it was `carlos` and tried the password, which worked.
+
+---
+
+## 12. Multi-step process with no access control on one step
+<img src="img/multi-step/multi-step.png" width="400">
+
+### Description
+Lab that involves promoting the user `wiener` to administrator. \
+This time, the server has an access control vulnerability in a multi-step process.
+
+The lab supplies details to the `administrator` account to expose the admin processes.
+
+### Solution
+First, I checked out the administrator account to see what steps are taken to promote a user to administrator. I tried promoting the user `carlos` and was met with the following:
+
+<img src="img/multi-step/multi-step-confirmation.png" width="400">
+
+I pressed yes, and promoted `carlos` to an administrator. I quickly checked Burp Proxy to see what requests were made, and it turns out they were two requests with the same method sent to the same URI path. However, the request body differed:
+
+> ```html
+> // First POST
+> username=carlos&action=upgrade
+> 
+> // Confirmation POST
+> username=carlos&confirmed=true&action=upgrade
+> ```
+
+So, I logged off from the administrator account and logged on to `wiener:peter`. I changed the username in the parameters to `wiener`, then used the account's session cookie to send the confirmation `POST` request, and voila:
+
+> ```html
+> HTTP/2 302 Found
+> Location: /admin
+> X-Frame-Options: SAMEORIGIN
+> Content-Length: 0
+> ```
+
+When I refreshed the page, I suddenly had access to the admin panel, and the lab was solved.
+
+---
+
+## 13. Multi-step process with no access control on one step
+<img src="img/referer/referer.png" width="400">
+
+### Description
+Lab that involves promoting the user `wiener` to administrator. \
+This time, the server has sub-pages that enforce access control by ensuring that the referer is `/admin`.
+
+The lab supplies details to the `administrator` account to expose the admin processes.
+
+### Solution
+This lab was surprisingly simple. First, I logged on to the administrator account to trigger the request that promotes another user to administrator.
+
+Then, I inspected it on Burp Proxy and sent it to Repeater. I logged out of the administrator account, logged into `wiener:peter`, and copied its cookie onto the request on Repeater.
+
+Since the `Referer` header still contains `/admin` from the previous administrator request, I didn't have to change anything here. I simply changed the `username` parameter to `wiener` and sent the request with the user-level cookie.
+
+I received a `302 Found` and when I refreshed the page I was an administrator on `wiener:peter`.
