@@ -7,4 +7,6 @@ This repository contains all the labs I have done on [PortSwigger](https://ports
 
 ### [Path Traversal](./path-traversal/README.md) - 6/6 [COMPLETE]
 
-### [File Upload Vulnerabilities](./file-upload/README.md) 6/7 [CURRENT]
+### [File Upload Vulnerabilities](./file-upload/README.md) 6/7
+
+### [Access Control Vulnerabilities](./access-control/README.md) 9/13 [CURRENT]
