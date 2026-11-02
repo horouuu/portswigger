@@ -253,6 +253,6 @@ I sent the request and it actually gave me a `302 Found`!
 
 Now, the only thing left to do was to render this on the browser instead of Burp Repeater so that I could finish the lab. I just right-clicked the request and sent it to the browser.
 
-This was actually a rather strange lab. I've done work on the backend before, and I can't imagine not only correctly parsing the password input as an array, but also checking every element for the correct password. Nevertheless, I suppose the point of it is that you should never make sure a mistake.
+This was actually a rather strange lab. I've done work on the backend before, and I can't imagine not only correctly parsing the password input as an array, but also checking every element for the correct password. Nevertheless, I suppose the point of it is that you should never make such a mistake.
 
 That was my first expert lab complete!
