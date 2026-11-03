@@ -14,3 +14,5 @@ The + sign indicates expert labs that may be in that particular category. For ex
 ### [Access Control Vulnerabilities](./access-control/README.md) 13/13 [COMPLETE]
 
 ### [Authentication](./authentication/README.md) 5/12 + 1/2 [CURRENT]
+
+### [Information Disclosure](./information-disclosure/README.md) 5/5 [COMPLETE]
