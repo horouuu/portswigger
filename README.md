@@ -16,3 +16,5 @@ The + sign indicates expert labs that may be in that particular category. For ex
 ### [Authentication](./authentication/README.md) 5/12 + 1/2 [CURRENT]
 
 ### [Information Disclosure](./information-disclosure/README.md) 5/5 [COMPLETE]
+
+### [HTTP host header attacks](./http-host-header-attacks/README.md) 1/7
