@@ -19,4 +19,4 @@ The + sign indicates expert labs that may be in that particular category. For ex
 
 ### [HTTP host header attacks](./http-host-header-attacks/README.md) 1/7
 
-### [Business logic vulnerabilities](./business-logic-vulnerabilities/README.md) 2/11 + 0/1
+### [Business logic vulnerabilities](./business-logic-vulnerabilities/README.md) 5/11 + 0/1
