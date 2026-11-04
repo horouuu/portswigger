@@ -101,3 +101,69 @@ In this case, I let it overflow too much and it wrapped around to some large val
 <img src="./img/low-level/low-level-adjusted.png" width=400>
 
 With that, I was able to purchase the item and complete the lab!
+
+---
+
+## 5. Inconsistent handling of exceptional input
+<img src="./img/exceptional/exceptional.png" width=400>
+
+## Description
+This lab involves exploiting a flaw in the registration system to gain administrator access on the server.
+
+## Solution
+This lab was quite tricky. I first played around with the registration system, signing up on a few accounts to see if I could somehow trick the system into thinking that I had just created an admin account.
+
+However, this bore little fruit. So, I tried to crawl the URI paths of the server using Burp Target. I saw the following interesting URI path (yes, I started using the red squares):
+
+<img src="./img/exceptional/exceptional-sitemap.png" width=400>
+
+Looks like Target had just found the `/admin` path. I tried accessing it, but it returned with the following message:
+
+> `Admin interface only available if logged in as a DontWannaCry user`
+
+I did notice that the registration page had the following notification too:
+
+> `If you work for DontWannaCry, please use your @dontwannacry.com email address`
+
+I had the idea to trick the system into thinking that I was using that domain. I was given access to a custom email server by the lab, which came with the following domain:
+
+> `@exploit-0ad600e303d5c23881862ea401430067.exploit-server.net`
+
+Which means I could technically attach `dontwannacry.com` to it as follows:
+
+> `@dontwannacry.com.exploit-0ad600e303d5c23881862ea401430067.exploit-server.net`
+
+The above works perfectly fine, as there is no rule saying you can't use `.com` as a subdomain name. The email domain will route every email bound for every subdomain to the email server (as stated).
+
+Since this lab was supposed to have a bug, I checked if the email had a maximum character limit:
+
+<img src="./img/exceptional/exceptional-email.png" width=400>
+
+To my surprise, it didn't. Not only that, it seems that after I logged into the account, the end of the email was truncated (presumably because it was too long):
+
+<img src="./img/exceptional/exceptional-truncate.png" width=400>
+
+This made things trivial! All I had to do was attach `dontwannacry.com` as a subdomain to the exploit email domain, then make the email username long enough to make it truncate the rest of the email. The idea is that registration email may still be sent to the exploit email, but the server would check only the truncated portion!
+
+First, I checked the length of the truncated portion:
+
+<img src="./img/exceptional/exceptional-length.png" width=400>
+
+Then, I checked the length of the domain I needed to attach:
+
+<img src="./img/exceptional/exceptional-domain-length.png" width=400>
+
+With that information, I crafted an exploit email:
+
+<img src="./img/exceptional/exceptional-exploit.png" width=400>
+
+I signed up with the following email and checked my profile:
+> ```
+> testtesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttestte@dontwannacry.com.exploit-0ad600e303d5c23881862ea401430067.exploit-server.net
+> ```
+
+<img src="./img/exceptional/exceptional-success.png" width=400>
+
+Success! Looks like it truncated exactly where the `dontwannacry.com` domain ended, which seems to have tricked the server into thinking that this was a genuine email of that domain.
+
+With that, I opened the administrator panel and deleted `carlos`. 
