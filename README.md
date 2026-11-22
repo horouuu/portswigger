@@ -21,4 +21,4 @@ The + sign indicates expert labs that may be in that particular category. For ex
 
 ### [Business logic vulnerabilities](./business-logic-vulnerabilities/README.md) 5/11 + 0/1
 
-### [API testing](./api-testing/README.md) 3/4 + 0/1
+### [API testing](./api-testing/README.md) 4/4 + 0/1

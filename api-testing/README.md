@@ -87,3 +87,65 @@ So, I sent this request to Repeater and simply added the `chosen_discount` prope
 > ```
 
 Notice how I set the `percentage` field to `100`. This caused the item to cost \$0, allowing me to purchase it for no money and completing this lab.
+
+---
+
+## 4. Exploiting server-side parameter pollution in a query string
+<img src="./img/pollution/pollution.png" width=400>
+
+### Descrption
+Involves hijacking the `/forgot-password` endpoint to expose a reset token and take over an administrator account to delete `carlos`.
+
+### Solution
+First, I simply went through the procedure for resetting a forgotten password. I sent the request with the username `administrator`, and it seems like it returned the following payload:
+
+> ```
+> {
+>     type: email,
+>     result: *****@normal-user.net
+> }
+> ```
+
+Then, I tried to truncate the query to see if I could expose something:
+
+> `csrf=JTgEzzDso7ehFj98evhR2KcLHcJBfkTg&username=administrator%23`
+
+Doing so resulted in a `400 Bad Request` with the message "Invalid field". I immediately tried `field` as a parameter, which returned a `400 Bad Request`, but with an actual payload that has a server-side error message this time. I tried `field=email`, which returned the payload from a normal attempt. 
+
+I then tried `username`, as it was a parameter, and it returned the following:
+
+> ```
+> {
+>     type: username,
+>     result: administrator
+> }
+> ```
+
+It was quite clear what this `field` parameter was doing. It was telling the backend to return a representation of the username whose password I have just requested to reset. I opened the script found in `/forgot-password` to reveal the following:
+
+> ```js
+> forgotPwdReady(() => {
+>     const queryString = window.location.search;
+>     const urlParams = new URLSearchParams(queryString);
+>     const resetToken = urlParams.get('reset-token');
+>     if (resetToken)
+>     {
+>         window.location.href = `/forgot-password?reset_token=${resetToken}`;
+>     }
+>     else
+>     {
+>         const forgotPasswordBtn = document.getElementById("forgot-password-btn");
+>         forgotPasswordBtn.addEventListener("click", displayMsg);
+>     }
+> });
+> ```
+
+It looks like this endpoint also takes the extra parameter `reset_token`. Naturally, I tried to put this in as `field=reset_token`. I received the following:
+
+<img src="./img/pollution/pollution-token.png" width=400>
+
+At this point, I only had to access the endpoint with the token as a parameter. I changed the password to `12345`, logged in, and found the following admin panel:
+
+<img src="./img/pollution/pollution-users.png" width=400>
+
+With that, I deleted `carlos` and the lab was complete.
